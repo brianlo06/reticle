@@ -1,0 +1,69 @@
+/* Played in a dark room, at arm's length, while looking at a television — so the phone is
+   near-black, every target is thumb-sized, and nothing needs to be read to be used. */
+:root {
+  --bg: #08090c; --surface: #14161c; --line: #262b36;
+  --text: #e8eaf0; --dim: #868e9e; --accent: #4c8dff; --fire: #e5544b; --warn: #e5a13a;
+  --radius: 14px;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; height: 100%; overscroll-behavior: none;
+  background: var(--bg); color: var(--text);
+  font: 15px/1.45 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+body {
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.screen { display: none; height: 100dvh; flex-direction: column; gap: 10px; padding: 12px; }
+.screen.is-visible { display: flex; }
+.is-hidden { display: none !important; }
+
+.connect-inner { margin: auto; padding: 24px; max-width: 420px; width: 100%; text-align: center; }
+.brand { font-size: 40px; font-weight: 700; letter-spacing: -0.03em; margin: 0 0 8px; }
+.subtitle { color: var(--dim); margin: 0 0 24px; }
+.error {
+  color: var(--fire); background: rgba(229,84,75,.1); border: 1px solid rgba(229,84,75,.3);
+  border-radius: var(--radius); padding: 12px 14px; margin-top: 20px; text-align: left;
+}
+.code-entry label { display: block; color: var(--dim); margin-bottom: 12px; }
+#code-input {
+  width: 100%; font-size: 40px; font-weight: 600; letter-spacing: .28em; text-align: center;
+  padding: 14px 0 14px .28em; margin-bottom: 14px; color: var(--text);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+}
+
+.aim {
+  flex: 1; min-height: 0; display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 20px;
+  transition: background 90ms ease, border-color 90ms ease;
+}
+.aim.is-engaged { background: #24406e; border-color: var(--accent); }
+.aim-hint { text-align: center; color: var(--dim); pointer-events: none; padding: 0 24px; }
+.aim-hint strong { display: block; color: var(--text); font-size: 20px; margin-bottom: 4px; }
+.aim.is-engaged .aim-hint { opacity: 0; }
+
+.row { display: flex; gap: 8px; }
+.btn {
+  min-height: 60px; padding: 0 16px; font-size: 16px; font-weight: 600; color: var(--text);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  cursor: pointer; transition: transform 60ms ease, background 60ms ease;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-large { min-height: 64px; width: 100%; font-size: 17px; }
+.btn-recenter { flex: 1; }
+.btn-fire {
+  flex: 2; min-height: 96px; font-size: 26px; font-weight: 800; letter-spacing: .08em;
+  background: var(--fire); border-color: var(--fire); color: #fff;
+}
+.btn-fire:active { background: #b83a32; }
+
+.diag {
+  margin: 0; padding: 0 4px; font: 11px/1.5 ui-monospace, Menlo, monospace;
+  color: var(--dim); font-variant-numeric: tabular-nums;
+}
+.diag.is-bad { color: var(--warn); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

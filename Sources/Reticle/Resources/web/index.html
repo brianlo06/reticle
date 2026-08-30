@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#08090c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Reticle</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<section id="screen-connect" class="screen is-visible">
+  <div class="connect-inner">
+    <h1 class="brand">Reticle</h1>
+    <p class="subtitle" id="connect-status">Connecting…</p>
+
+    <div id="code-entry" class="code-entry is-hidden">
+      <label for="code-input">Enter the code shown on the TV</label>
+      <input id="code-input" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+             autocomplete="off" placeholder="000000">
+      <button id="code-submit" class="btn btn-primary">Join</button>
+    </div>
+
+    <div id="motion-gate" class="is-hidden">
+      <p class="subtitle">This browser needs permission to read the phone's motion sensors.</p>
+      <button id="enable-motion" class="btn btn-primary btn-large">Enable motion</button>
+    </div>
+
+    <p id="connect-error" class="error is-hidden" role="alert"></p>
+  </div>
+</section>
+
+<section id="screen-play" class="screen">
+  <div class="aim" id="aim">
+    <div class="aim-hint" id="aim-hint">
+      <strong>Hold here to aim</strong>
+      <span>then point the phone at the screen</span>
+    </div>
+  </div>
+  <p class="diag" id="diag">starting…</p>
+  <div class="row">
+    <button class="btn btn-recenter" id="recenter">Recentre</button>
+    <button class="btn btn-fire" id="fire">FIRE</button>
+  </div>
+</section>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>

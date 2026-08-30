@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift --version && node --version
+      - name: Build
+        run: swift build
+      - name: Game rules
+        run: swift test
+      # A real game process with a real TLS listener, joined by a simulated player.
+      # No OS permission is needed: the game draws its own reticle rather than moving
+      # the system cursor, which is the main practical difference from AirPoint.
+      - name: Join a running game
+        run: |
+          set -euo pipefail
+          STATE="$(mktemp -d)/reticle"
+          ./.build/debug/reticle --port 8444 --state-dir "$STATE" \
+            --auto-approve --log-level info > /tmp/reticle.log 2>&1 &
+          GAME=$!
+          trap 'kill $GAME 2>/dev/null || true' EXIT
+          for _ in $(seq 1 80); do
+            if grep -q 'Pairing code:' /tmp/reticle.log; then break; fi
+            sleep 0.25
+          done
+          CODE=$(grep -o 'Pairing code:  [0-9]*' /tmp/reticle.log | tail -1 | awk '{print $3}')
+          if [ -z "$CODE" ]; then echo "game did not start"; cat /tmp/reticle.log; exit 1; fi
+          node tools/probe.mjs --code "$CODE" --port 8444
+      - name: Game log on failure
+        if: failure()
+        run: cat /tmp/reticle.log || true
