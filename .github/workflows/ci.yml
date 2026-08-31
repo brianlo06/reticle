@@ -22,8 +22,10 @@ jobs:
         run: |
           set -euo pipefail
           STATE="$(mktemp -d)/reticle"
+          # --bind is not optional alongside --auto-approve: the game refuses to approve
+          # players automatically on an interface anyone else can reach.
           ./.build/debug/reticle --port 8444 --state-dir "$STATE" \
-            --auto-approve --log-level info > /tmp/reticle.log 2>&1 &
+            --bind 127.0.0.1 --auto-approve --log-level info > /tmp/reticle.log 2>&1 &
           GAME=$!
           trap 'kill $GAME 2>/dev/null || true' EXIT
           for _ in $(seq 1 80); do
