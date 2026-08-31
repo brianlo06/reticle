@@ -105,9 +105,28 @@ swift test        # rules only, no window server or phone needed
 pairing, seat allocation, aiming, firing, validation, rate limiting, version gating. It is
 AirPoint's protocol probe with the assertions adapted, which is itself a form of reuse.
 
+## Feedback
+
+The phone is a gun that kicks. The Mac sends back short cues and the phone renders them as a
+haptic pulse plus a synthesised tone:
+
+| | |
+|---|---|
+| Hit | Rising click; harder the longer your streak, with the score flashed on screen |
+| Miss | Low buzz |
+| Ready / countdown | One beat per second, so `3, 2, 1` is felt rather than watched |
+| Round start / end | A fanfare and a long buzz |
+| A shot the cooldown refused | **Nothing.** It never happened, so it must not be felt |
+
+Tones are synthesised in the browser rather than loaded, so there are no audio assets and no
+failure mode where the sound arrives after the moment it was for.
+
+The cue vocabulary lives in AirPoint's protocol and is about *feel*, not meaning —
+`success` at some intensity, never `targetDestroyed`. The host owns meaning, the client owns
+presentation, and any other project built on `RemoteServer` inherits it.
+
 ## Not done yet
 
-- No score feedback on the phone; the TV shows everything.
 - Sound.
 - The reticle colours assume four seats; a fifth player would reuse the first colour.
 - **Tuning is unvalidated.** It has been played on real hardware and works, but the round

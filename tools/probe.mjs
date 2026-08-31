@@ -146,6 +146,36 @@ socket.addEventListener('open', async () => {
     check('ping is answered with a matching id', pong.d?.id === 99);
     console.log(`        round-trip: ${Date.now() - sentAt} ms`);
 
+    // --- Feedback cues coming back from the host ---
+    //
+    // The whole point of this addition: the phone should be told what happened. Readying up
+    // starts a countdown, which should produce a beat per second and then a start cue.
+    const cueMark = received.length;
+    send(socket, 'left_click', { clicks: 1 });          // ready up
+    await sleep(200);
+    const readyCue = received.slice(cueMark).find((m) => m.t === 'cue');
+    check('readying up is acknowledged with a cue', readyCue?.d?.kind === 'info',
+      `got ${readyCue ? readyCue.d.kind : 'no cue'}`);
+
+    await sleep(3600);                                   // countdown, then the round starts
+    const cues = received.slice(cueMark).filter((m) => m.t === 'cue');
+    check('the countdown is felt beat by beat',
+      cues.filter((m) => m.d.kind === 'tick').length >= 2,
+      `saw ${cues.filter((m) => m.d.kind === 'tick').length} ticks`);
+    check('the round start is felt', cues.some((m) => m.d.kind === 'start'));
+    check('every cue carries an intensity in range',
+      cues.every((m) => typeof m.d.intensity === 'number'
+                        && m.d.intensity >= 0 && m.d.intensity <= 1));
+
+    // Now in a round: a shot at an empty patch of arena should read as a miss.
+    const shotMark = received.length;
+    send(socket, 'left_click', { clicks: 1 });
+    await sleep(250);
+    const shotCue = received.slice(shotMark).find((m) => m.t === 'cue');
+    check('a shot during a round produces a hit or miss cue',
+      shotCue?.d?.kind === 'failure' || shotCue?.d?.kind === 'success',
+      `got ${shotCue ? shotCue.d.kind : 'no cue'}`);
+
     // --- Every event type is accepted ---
     const before = received.length;
     // Aim toward a corner, then fire a burst. Events the game ignores are sent too: they

@@ -23,9 +23,40 @@ final class GameHost: RemoteSessionHandler {
 
     /// Last phase announced, so the transition is logged once rather than every frame.
     private var announcedPhase: Phase?
+    /// Live sessions, so cues can be sent to everyone rather than only to whoever acted.
+    private var sessions: [UUID: RemoteSession] = [:]
+    /// The last whole second announced during a countdown, so each beat is felt once.
+    private var lastTickSecond: Int?
 
     init(game: Game) {
         self.game = game
+    }
+
+    private func broadcast(_ cue: CuePayload) {
+        for session in sessions.values { session.send(cue: cue) }
+    }
+
+    /// One pulse per second of the countdown, and for the last seconds of a round, so the
+    /// clock is felt rather than watched — the point of aiming with a phone is that you can
+    /// keep your eyes on the television.
+    private func emitCountdownBeats() {
+        let now = Date().timeIntervalSince1970
+        guard let remaining = game.remaining(at: now) else {
+            lastTickSecond = nil
+            return
+        }
+        let second = Int(ceil(remaining))
+        guard second != lastTickSecond else { return }
+        lastTickSecond = second
+
+        switch game.phase {
+        case .countdown:
+            if let cue = Feedback.countdownTick(secondsLeft: second) { broadcast(cue) }
+        case .playing:
+            if let cue = Feedback.roundEndingTick(secondsLeft: second) { broadcast(cue) }
+        case .lobby, .results:
+            break
+        }
     }
 
     /// Narrates the match to the terminal.
@@ -34,9 +65,15 @@ final class GameHost: RemoteSessionHandler {
     /// pointer telemetry and said nothing about whether a round ever started or anybody
     /// scored — which made "it worked" impossible to verify from the outside.
     func logPhaseChanges() {
+        emitCountdownBeats()
+
         let phase = game.phase
         guard phase != announcedPhase else { return }
+        let previous = announcedPhase
         announcedPhase = phase
+
+        // Everyone feels a phase change, whoever triggered it.
+        if let cue = Feedback.cue(movingTo: phase, from: previous) { broadcast(cue) }
 
         switch phase {
         case .lobby:
@@ -88,6 +125,7 @@ final class GameHost: RemoteSessionHandler {
         let name = session.deviceName ?? "Player"
         queue.async { [weak self] in
             guard let self else { return }
+            self.sessions[session.id] = session
             self.game.addPlayer(id: session.id, name: name)
             Log.info("\(name) joined — \(self.game.players.count) playing")
             self.onRosterChange?()
@@ -97,6 +135,7 @@ final class GameHost: RemoteSessionHandler {
     func sessionDidEnd(_ session: RemoteSession) {
         queue.async { [weak self] in
             guard let self else { return }
+            self.sessions.removeValue(forKey: session.id)
             self.game.removePlayer(id: session.id)
             Log.info("\(session.deviceName ?? "a player") left — \(self.game.players.count) playing")
             self.onRosterChange?()
@@ -126,6 +165,8 @@ final class GameHost: RemoteSessionHandler {
                 if case .readied(let ready) = result {
                     Log.info("\(session.deviceName ?? "a player") is \(ready ? "ready" : "not ready")")
                 }
+                // Only the player who pulled the trigger feels it.
+                if let cue = Feedback.cue(for: result) { session.send(cue: cue) }
                 self.onTrigger?(session.id, result)
             }
 

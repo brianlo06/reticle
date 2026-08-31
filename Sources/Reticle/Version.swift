@@ -5,5 +5,5 @@ enum Reticle {
     /// Compared against what the phone reports, so a stale page held in a backgrounded
     /// browser tab is detected rather than silently misbehaving — a lesson inherited from
     /// AirPoint, where exactly that cost three rounds of debugging.
-    static let controllerVersion = "0.1.0"
+    static let controllerVersion = "0.2.0"
 }

@@ -18,7 +18,7 @@ import {
 } from '/motion.js';
 
 const PROTOCOL_VERSION = 1;
-const CLIENT_VERSION = '0.1.0';
+const CLIENT_VERSION = '0.2.0';
 const MAX_BUFFERED_BYTES = 32 * 1024;
 
 const $ = (id) => document.getElementById(id);
@@ -28,6 +28,63 @@ const b64url = (v) => {
 };
 const toB64 = (bytes) => btoa(String.fromCharCode(...bytes));
 const haptic = (p) => { if (navigator.vibrate) { try { navigator.vibrate(p); } catch {} } };
+
+// Feedback for cues the Mac sends back.
+//
+// Tones are synthesised rather than loaded, so there are no audio assets to ship, nothing to
+// preload, and no failure mode where the sound arrives after the moment it was for. iOS will
+// not start an AudioContext without a user gesture, so it is created lazily on the first tap
+// and resumed if the browser suspends it.
+const Cue = {
+  context: null,
+
+  unlock() {
+    try {
+      if (!this.context) {
+        const Ctor = window.AudioContext || window.webkitAudioContext;
+        if (Ctor) this.context = new Ctor();
+      }
+      if (this.context && this.context.state === 'suspended') this.context.resume();
+    } catch { this.context = null; }
+  },
+
+  // kind -> [vibration pattern, frequency Hz, duration s, waveform]
+  recipes: {
+    success: [[18], 880, 0.07, 'square'],
+    failure: [[40], 160, 0.10, 'sawtooth'],
+    warning: [[12, 60, 12], 500, 0.06, 'square'],
+    start:   [[30, 60, 30, 60, 60], 660, 0.14, 'square'],
+    finish:  [[120], 330, 0.30, 'triangle'],
+    tick:    [[14], 740, 0.05, 'square'],
+    info:    [[10], 520, 0.05, 'sine'],
+  },
+
+  play(kind, intensity = 0.6) {
+    const recipe = this.recipes[kind] ?? this.recipes.info;
+    const [pattern, frequency, duration, waveform] = recipe;
+    const strength = Math.min(Math.max(intensity, 0), 1);
+
+    // Intensity scales the buzz, so a five-streak hit is felt as harder than a first one.
+    haptic(pattern.map((ms, i) => (i % 2 === 0 ? Math.round(ms * (0.5 + strength)) : ms)));
+
+    if (!this.context || this.context.state !== 'running') return;
+    try {
+      const now = this.context.currentTime;
+      const osc = this.context.createOscillator();
+      const gain = this.context.createGain();
+      osc.type = waveform;
+      // A success rises in pitch with intensity; the rest hold their note.
+      osc.frequency.setValueAtTime(frequency * (kind === 'success' ? 1 + strength * 0.5 : 1), now);
+      // Ramped, never switched: an abrupt gain change is an audible click on every note.
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.02 + 0.10 * strength, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      osc.connect(gain).connect(this.context.destination);
+      osc.start(now);
+      osc.stop(now + duration + 0.02);
+    } catch { /* audio is a bonus, never a requirement */ }
+  },
+};
 
 function showError(message) {
   const el = $('connect-error');
@@ -156,6 +213,9 @@ class Controller {
       $('screen-play').classList.add('is-visible');
       this._startLoops();
       this._ensureMotion();
+    } else if (message.t === 'cue') {
+      Cue.play(message.d?.kind, message.d?.intensity ?? 0.6);
+      if (message.d?.text) this._flash(message.d.text, message.d.kind);
     } else if (message.t === 'error') {
       if (message.d.fatal) {
         this.shouldReconnect = false;
@@ -284,6 +344,16 @@ class Controller {
     }, 500);
   }
 
+  /// Briefly shows what just happened, for the glance down after a shot.
+  _flash(text, kind) {
+    const el = $('flash');
+    if (!el) return;
+    el.textContent = text;
+    el.className = `flash is-${kind ?? 'info'}`;
+    clearTimeout(this.flashTimer);
+    this.flashTimer = setTimeout(() => { el.className = 'flash is-hidden'; }, 700);
+  }
+
   // --- controls ------------------------------------------------------------
 
   _wireUI() {
@@ -304,6 +374,7 @@ class Controller {
         showError('Motion access was denied, so aiming will not work.');
         return;
       }
+      Cue.unlock();
       localStorage.setItem('reticle.motion', 'yes');
       $('motion-gate').classList.add('is-hidden');
       $('screen-connect').classList.remove('is-visible');
@@ -326,6 +397,7 @@ class Controller {
     };
     aim.addEventListener('pointerdown', (event) => {
       event.preventDefault();
+      Cue.unlock();
       if (aim.setPointerCapture) { try { aim.setPointerCapture(event.pointerId); } catch {} }
       engage();
     }, { passive: false });
@@ -335,8 +407,10 @@ class Controller {
     // Fires on press, not on click: a trigger with the browser's tap delay feels broken.
     $('fire').addEventListener('pointerdown', (event) => {
       event.preventDefault();
+      // Unlocking here rather than once at startup: iOS suspends the context when the page
+      // backgrounds, and the trigger is the tap the player makes most often.
+      Cue.unlock();
       this.send('left_click', { clicks: 1 });
-      haptic(18);
     }, { passive: false });
 
     $('recenter').addEventListener('click', () => {
