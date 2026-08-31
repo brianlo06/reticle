@@ -289,7 +289,7 @@ public final class Game {
         player.streak += 1
         player.bestStreak = max(player.bestStreak, player.streak)
 
-        let multiplier = min(1 + (player.streak - 1) / 3, settings.maxMultiplier)
+        let multiplier = Scoreboard.multiplier(forStreak: player.streak, settings: settings)
         let points = Self.points(for: target, at: now, settings: settings) * multiplier
         player.score += points
         players[id] = player
