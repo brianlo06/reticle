@@ -55,15 +55,27 @@ invalidate the scores the round is about to report.
 
 | | |
 |---|---|
-| **Arcade** | 45s, mixed sizes, gentle drift |
-| **Precision** | Small, slow, long-lived targets and a longer cooldown. Rewards a steady hand over a fast one. |
-| **Survival** | Fast and small. Three misses and you are out; the round ends when everyone is. |
+| **Arcade** | 45s, mixed sizes, gentle drift, the occasional gold target |
+| **Precision** | Small, slow, long-lived targets and a longer cooldown. Rewards a steady hand over a fast one, and punishes shooting without looking. |
+| **Survival** | Fast and small. Three mistakes and you are out; the round ends when everyone is. |
 
 A mode is a named set of `Game.Settings` rather than a branch in the rules, so every mode is
 covered by the same tests and adding one is a matter of choosing numbers.
 
 Targets drift and **bounce off the walls** rather than wrapping — a target that teleports
 across the arena cannot be tracked, and tracking is the point of making them move.
+
+Not every target is one you should shoot:
+
+| | | |
+|---|---|---|
+| **Red circle** | ordinary | points by size and how quickly you got it |
+| **Gold hexagon** | bonus | triple points, and it leaves sooner than the rest |
+| **Blue diamond** | penalty | costs you points and your streak, and counts as a mistake in Survival |
+
+They differ in **shape as well as colour**. About one player in twelve cannot rely on
+colour, and a television across a room is unkind to everybody else — so the thing you must
+not shoot is never distinguished by hue alone.
 
 ## How a round works
 
@@ -144,6 +156,7 @@ through whatever the TV is plugged into:
 |---|---|
 | Hit | A click and a rising note; both climb with your streak, with the score flashed on screen |
 | Miss | Low falling buzz |
+| Shooting a penalty target | The same as a miss, turned well up |
 | Ready / countdown | One beat per second, so `3, 2, 1` is felt rather than watched |
 | Round start / end | A fanfare and a long buzz |
 | A shot the cooldown refused | **Nothing.** It never happened, so it must not be felt |
@@ -192,16 +205,18 @@ testing convenience, not a hosting mode.
 
 ## Not done yet
 
-- **Tuning is still unvalidated.** The round length, target sizes and spawn pacing were
-  chosen by guess and have had one session of feedback. Aim is the exception only in that it
-  can now be settled without a rebuild: `[` and `]` adjust it mid-round and the value is
-  logged so it can be passed back as `--sensitivity`. The starting numbers are a
-  better-reasoned guess than `aimGain: 1.0`, not a measured one.
+- **Tuning is still unvalidated.** The round length, target sizes, spawn pacing and the new
+  bonus and penalty rates were chosen by guess and have had one session of feedback. Aim is
+  the exception only in that it can now be settled without a rebuild: `[` and `]` adjust it
+  mid-round and the value is logged so it can be passed back as `--sensitivity`. The
+  starting numbers are a better-reasoned guess than `aimGain: 1.0`, not a measured one.
 - Only played single-player on real hardware. Multiplayer is verified by
   `tools/multiplayer-check.mjs` — six concurrent sessions, simultaneous fire, per-player
   feedback and seat eviction all pass against a live host — but no two actual phones have
   been in a round together.
-- Modes and moving targets are tested but have not been played on hardware.
+- Modes, moving targets, bonus and penalty targets and the sound are tested but have not
+  been played on hardware. Nobody has yet heard the Mac's audio next to four phones all
+  making their own noise, which is the situation it was written for.
 
 ## Licence
 

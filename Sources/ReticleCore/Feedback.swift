@@ -22,6 +22,13 @@ public enum Feedback {
             let label = multiplier > 1 ? "+\(points) x\(multiplier)" : "+\(points)"
             return CuePayload(kind: .success, intensity: intensity, text: label)
 
+        // Shooting something you were meant to leave alone is a failure rather than a
+        // warning: `warning` already means "the round is nearly over" and would collide
+        // with it in the last three seconds, which is exactly when this is most likely to
+        // happen. It is the same feeling as a miss, turned well up.
+        case .shot(.penalty(_, let points)):
+            return CuePayload(kind: .failure, intensity: 0.95, text: "\(points)")
+
         case .shot(.miss):
             return CuePayload(kind: .failure, intensity: 0.35)
 

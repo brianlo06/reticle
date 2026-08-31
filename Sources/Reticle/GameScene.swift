@@ -246,27 +246,77 @@ final class GameScene: SKScene {
         }
 
         for target in game.targets {
-            let node = targetNodes[target.id] ?? makeTargetNode(radius: target.radius, id: target.id)
+            let node = targetNodes[target.id]
+                ?? makeTargetNode(radius: target.radius, kind: target.kind, id: target.id)
             node.position = CGPoint(x: target.center.x, y: target.center.y)
             // Targets dim as they age, which is the only cue that they are about to leave.
             let remaining = target.remainingFraction(at: now)
             node.alpha = 0.35 + 0.65 * remaining
-            node.strokeColor = NSColor(calibratedRed: 1, green: 0.35 + 0.5 * remaining,
-                                       blue: 0.3, alpha: 1)
+            if target.kind == .standard {
+                node.strokeColor = NSColor(calibratedRed: 1, green: 0.35 + 0.5 * remaining,
+                                           blue: 0.3, alpha: 1)
+            }
         }
     }
 
-    private func makeTargetNode(radius: Double, id: UUID) -> SKShapeNode {
-        let node = SKShapeNode(circleOfRadius: radius)
-        node.lineWidth = 3
-        node.fillColor = NSColor(calibratedRed: 0.25, green: 0.06, blue: 0.06, alpha: 0.85)
-        node.strokeColor = .systemRed
+    /// Colour and fill per kind. The *shape* is what actually distinguishes them — see
+    /// `Target.Kind.sides` — because a player who cannot rely on colour still has to know
+    /// which one not to shoot, and at television distance so does everyone else.
+    private static func palette(for kind: Target.Kind) -> (stroke: NSColor, fill: NSColor) {
+        switch kind {
+        case .standard:
+            return (.systemRed, NSColor(calibratedRed: 0.25, green: 0.06, blue: 0.06, alpha: 0.85))
+        case .bonus:
+            return (NSColor(calibratedRed: 1, green: 0.85, blue: 0.25, alpha: 1),
+                    NSColor(calibratedRed: 0.28, green: 0.22, blue: 0.03, alpha: 0.85))
+        case .penalty:
+            return (NSColor(calibratedRed: 0.45, green: 0.72, blue: 1, alpha: 1),
+                    NSColor(calibratedRed: 0.05, green: 0.13, blue: 0.26, alpha: 0.9))
+        }
+    }
 
-        let inner = SKShapeNode(circleOfRadius: radius * 0.45)
+    /// A circle for `sides == 0`, otherwise a regular polygon of that many sides.
+    private static func outline(radius: Double, sides: Int) -> CGPath {
+        guard sides >= 3 else {
+            return CGPath(ellipseIn: CGRect(x: -radius, y: -radius,
+                                            width: radius * 2, height: radius * 2),
+                          transform: nil)
+        }
+        let path = CGMutablePath()
+        for corner in 0..<sides {
+            // Rotated so a square sits on a corner rather than on an edge: a diamond is
+            // unmistakably not a circle at a glance, and an axis-aligned square is not.
+            let angle = .pi / 2 + Double(corner) * 2 * .pi / Double(sides)
+            let point = CGPoint(x: cos(angle) * radius, y: sin(angle) * radius)
+            corner == 0 ? path.move(to: point) : path.addLine(to: point)
+        }
+        path.closeSubpath()
+        return path
+    }
+
+    private func makeTargetNode(radius: Double, kind: Target.Kind, id: UUID) -> SKShapeNode {
+        let colors = Self.palette(for: kind)
+        let node = SKShapeNode(path: Self.outline(radius: radius, sides: kind.sides))
+        node.lineWidth = kind == .standard ? 3 : 4
+        node.fillColor = colors.fill
+        node.strokeColor = colors.stroke
+
+        let inner = SKShapeNode(path: Self.outline(radius: radius * 0.45, sides: kind.sides))
         inner.lineWidth = 2
         inner.strokeColor = NSColor(calibratedWhite: 1, alpha: 0.5)
         inner.fillColor = .clear
         node.addChild(inner)
+
+        // A bonus is worth noticing and is gone sooner, so it asks to be noticed. It
+        // pulses in size rather than in opacity, because opacity is already spoken for:
+        // every target fades as it ages, and two meanings on one channel is neither.
+        if kind == .bonus {
+            node.run(.sequence([
+                .wait(forDuration: 0.12),
+                .repeatForever(.sequence([.scale(to: 1.12, duration: 0.3),
+                                          .scale(to: 0.94, duration: 0.3)])),
+            ]))
+        }
 
         node.setScale(0.2)
         node.run(.scale(to: 1, duration: 0.12))
@@ -364,6 +414,16 @@ final class GameScene: SKScene {
             reticle.run(.sequence([.scale(to: 1.35, duration: 0.05), .scale(to: 1, duration: 0.1)]))
             floatText("+\(points)" + (multiplier > 1 ? " x\(multiplier)" : ""),
                       at: reticle.position, color: .systemGreen)
+        case .penalty(_, let points):
+            // The same shake as a miss, harder and longer: the mistake was worse, and it
+            // has to read as a mistake from the other side of the room.
+            reticle.run(.sequence([
+                .moveBy(x: 12, y: 0, duration: 0.04),
+                .moveBy(x: -24, y: 0, duration: 0.08),
+                .moveBy(x: 24, y: 0, duration: 0.08),
+                .moveBy(x: -12, y: 0, duration: 0.04),
+            ]))
+            floatText("\(points)", at: reticle.position, color: .systemRed)
         case .miss:
             reticle.run(.sequence([
                 .moveBy(x: 6, y: 0, duration: 0.03),

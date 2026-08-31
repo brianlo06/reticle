@@ -32,6 +32,10 @@ public struct PlayerState: Identifiable, Equatable, Sendable {
 
 public enum ShotOutcome: Equatable, Sendable {
     case hit(targetID: UUID, points: Int, multiplier: Int)
+    /// Shot something that should have been left alone. Distinct from a miss because the
+    /// player did hit what they aimed at — the mistake was the decision, not the aim, and
+    /// the scoreboard and the feedback should say so differently.
+    case penalty(targetID: UUID, points: Int)
     case miss
     /// Fired faster than the weapon allows. Not a miss — it should not break a streak.
     case tooSoon
@@ -98,6 +102,16 @@ public final class Game {
         public var targetSpeed: ClosedRange<Double> = 0...0
         /// Misses before a player is out for the round. Zero means unlimited.
         public var missesAllowed: Int = 0
+
+        /// How often a spawn is a bonus or a penalty rather than an ordinary target.
+        /// Zero for both makes a mode a pure aiming exercise, which is what Arcade was.
+        public var bonusChance: Double = 0
+        public var penaltyChance: Double = 0
+        /// What a bonus target multiplies its points by, on top of the streak multiplier.
+        public var bonusMultiplier: Int = 3
+        /// What shooting a penalty target costs. Subtracted, never taken below zero — a
+        /// negative scoreboard in a party game reads as a bug rather than as a rebuke.
+        public var penaltyCost: Int = 150
 
         public var roundDuration: Double = 45
         public var countdownDuration: Double = 3
@@ -255,6 +269,22 @@ public final class Game {
         }
 
         let target = targets.remove(at: hitIndex)
+
+        if target.kind == .penalty {
+            // Counted as a shot that found something, so it does not flatter accuracy, and
+            // as a mistake, so it breaks the streak and counts toward elimination. It is
+            // not recorded as a hit: hitting the thing you were supposed to avoid is not
+            // marksmanship.
+            player.streak = 0
+            player.score = max(0, player.score - settings.penaltyCost)
+            if settings.missesAllowed > 0,
+               player.shots - player.hits >= settings.missesAllowed {
+                player.isEliminated = true
+            }
+            players[id] = player
+            return .penalty(targetID: target.id, points: -settings.penaltyCost)
+        }
+
         player.hits += 1
         player.streak += 1
         player.bestStreak = max(player.bestStreak, player.streak)
@@ -273,7 +303,8 @@ public final class Game {
             ? 1 - (target.radius - settings.targetRadius.lowerBound) / span   // 1 = smallest
             : 0.5
         let speedFactor = target.remainingFraction(at: now)                    // 1 = instant
-        return Int((30 + 70 * sizeFactor + 50 * speedFactor).rounded())
+        let base = Int((30 + 70 * sizeFactor + 50 * speedFactor).rounded())
+        return target.kind == .bonus ? base * max(1, settings.bonusMultiplier) : base
     }
 
     // MARK: - Simulation
@@ -386,11 +417,30 @@ public final class Game {
             let heading = Double.random(in: 0...(2 * .pi), using: &rng)
             velocity = Vec2(x: cos(heading) * speed, y: sin(heading) * speed)
         }
+        let kind = chooseKind()
+        var lifetime = Double.random(in: settings.targetLifetime, using: &rng)
+        // A bonus that sits there as long as anything else is not a reward for noticing,
+        // it is just a bigger number. A penalty gets the full lifetime, because the player
+        // has to be given time to decide *not* to shoot it.
+        if kind == .bonus { lifetime *= 0.6 }
         return Target(center: Vec2(x: x, y: y),
                       radius: radius,
                       spawnedAt: now,
-                      lifetime: Double.random(in: settings.targetLifetime, using: &rng),
-                      velocity: velocity)
+                      lifetime: lifetime,
+                      velocity: velocity,
+                      kind: kind)
+    }
+
+    /// Rolls once for the whole decision rather than twice, so the two chances cannot add
+    /// up to more than every target and quietly starve out the ordinary ones.
+    private func chooseKind() -> Target.Kind {
+        let bonus = max(0, settings.bonusChance)
+        let penalty = max(0, settings.penaltyChance)
+        guard bonus + penalty > 0 else { return .standard }
+        let roll = Double.random(in: 0..<1, using: &rng) * max(1, bonus + penalty)
+        if roll < bonus { return .bonus }
+        if roll < bonus + penalty { return .penalty }
+        return .standard
     }
 
     /// Highest score first; ties broken by accuracy so a careful player beats a spammer.

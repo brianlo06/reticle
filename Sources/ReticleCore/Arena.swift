@@ -42,7 +42,33 @@ public struct Arena: Equatable, Sendable {
 
 /// A shootable target.
 public struct Target: Identifiable, Equatable, Sendable {
+
+    /// What shooting this one is worth.
+    ///
+    /// A gallery where every target is the same is an aiming exercise; one where you have
+    /// to decide *whether* to shoot is a game. The distinction is carried on the target
+    /// rather than in a parallel list so it cannot drift from the thing it describes.
+    public enum Kind: String, CaseIterable, Sendable {
+        case standard
+        /// Worth a multiple, and gone sooner. Reward for noticing.
+        case bonus
+        /// Costs points and breaks the streak. Not shooting it is the skill.
+        case penalty
+
+        /// Never shoot a target you were only told apart by its colour: about one player
+        /// in twelve cannot rely on that, and a television across a room is unkind to
+        /// everybody else. Shape carries the meaning; colour reinforces it.
+        public var sides: Int {
+            switch self {
+            case .standard: return 0     // a circle
+            case .bonus: return 6
+            case .penalty: return 4
+            }
+        }
+    }
+
     public let id: UUID
+    public var kind: Kind = .standard
     public var center: Vec2
     public var radius: Double
     public let spawnedAt: TimeInterval
@@ -52,8 +78,9 @@ public struct Target: Identifiable, Equatable, Sendable {
 
     public init(id: UUID = UUID(), center: Vec2, radius: Double,
                 spawnedAt: TimeInterval, lifetime: TimeInterval,
-                velocity: Vec2 = .zero) {
+                velocity: Vec2 = .zero, kind: Kind = .standard) {
         self.id = id
+        self.kind = kind
         self.center = center
         self.radius = radius
         self.spawnedAt = spawnedAt
