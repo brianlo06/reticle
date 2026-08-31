@@ -147,6 +147,21 @@ The cue vocabulary lives in AirPoint's protocol and is about *feel*, not meaning
 `success` at some intensity, never `targetDestroyed`. The host owns meaning, the client owns
 presentation, and any other project built on `RemoteServer` inherits it.
 
+## Playing from elsewhere
+
+A photo of the join code is enough to play **if you are on the same Wi-Fi** — that is the
+design, since everyone in the room scans the same code off the television. Each player still
+appears as an approval prompt on the Mac.
+
+It is not enough from another network. The address in the code is a private one and is not
+routable from outside, and there is deliberately no relay and no port forwarding. To play
+from somewhere else, put both machines on a mesh VPN (Tailscale, WireGuard): the remote
+player looks like they are on the LAN, the VPN handles authentication, and nothing is
+exposed to the internet.
+
+`--auto-approve` skips the approval prompt and is refused on anything but loopback. It is a
+testing convenience, not a hosting mode.
+
 ## Not done yet
 
 - Sound.

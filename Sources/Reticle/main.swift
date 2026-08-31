@@ -16,6 +16,7 @@ struct Options {
         return base.appendingPathComponent("Reticle", isDirectory: true)
     }()
     var maxPlayers = 4
+    var bindHost: String?
     var autoApprove = false
     var logLevel: Log.Level = .info
     var fullscreen = false
@@ -28,7 +29,8 @@ struct Options {
       --port <n>          TLS port (default 8444)
       --players <n>       Seats, 1-4 (default 4)
       --state-dir <path>  TLS identity and trusted devices
-      --auto-approve      Skip the approval prompt. Testing only.
+      --bind <host>       Interface to bind (default: all private interfaces)
+      --auto-approve      Skip the approval prompt. Requires --bind 127.0.0.1.
       --fullscreen        Start filling the screen
       --log-level <l>     debug | info | warn | error
       -h, --help          This help
@@ -54,6 +56,8 @@ struct Options {
                 if let raw = value(), let count = Int(raw) { options.maxPlayers = min(max(count, 1), 4) }
             case "--state-dir":
                 if let raw = value() { options.stateDirectory = URL(fileURLWithPath: (raw as NSString).expandingTildeInPath) }
+            case "--bind":
+                if let raw = value() { options.bindHost = raw }
             case "--auto-approve":
                 options.autoApprove = true
             case "--fullscreen":
@@ -73,6 +77,23 @@ struct Options {
                 exit(2)
             }
             index += 1
+        }
+        // Auto-approval means every device presenting the code gets in with no human
+        // involved. On a LAN interface that is an open door for anyone who photographs the
+        // screen. AirPoint has always refused this combination; the game lost the rule when
+        // its option parsing was written separately, which is exactly how safety checks go
+        // missing.
+        if options.autoApprove,
+           !["127.0.0.1", "::1", "localhost"].contains(options.bindHost ?? "") {
+            FileHandle.standardError.write(Data("""
+            reticle: --auto-approve requires --bind 127.0.0.1
+
+              Approving players automatically on a network interface would let anyone who
+              photographs the join code take a seat with nobody agreeing to it. It is a
+              testing convenience, not a hosting mode.
+
+            """.utf8))
+            exit(2)
         }
         return options
     }
@@ -162,6 +183,7 @@ let pairing = PairingService(trustStore: TrustStore(secrets: deviceSecrets),
 
 let serverConfig = ServerConfig(
     port: options.port,
+    bindHost: options.bindHost,
     stateDirectory: options.stateDirectory,
     serviceName: "Reticle on \(ProcessInfo.processInfo.hostName)",
     serviceType: "_reticle._tcp",
