@@ -41,7 +41,16 @@ A window opens and the terminal prints a QR code. On each player's phone:
 --auto-approve      Skip the approval prompt. Testing only.
 ```
 
-## How it plays
+## How a round works
+
+**Lobby** → everyone presses FIRE to ready up. **Countdown** → 3, 2, 1. **Round** → 45
+seconds. **Results** → scores, accuracy and best streak for 12 seconds, then back to the
+lobby.
+
+The trigger means "shoot" during a round and "I'm ready" in the lobby or on the results
+screen, so a match can be started and restarted **entirely from the couch** — nobody has to
+get up and touch the Mac. Joining mid-round drops you straight into the round in progress
+rather than making you watch.
 
 - Targets fade as they age. Shoot them early and small for more points.
 - Three consecutive hits raise your multiplier, up to ×5. A miss resets it.
@@ -98,7 +107,6 @@ AirPoint's protocol probe with the assertions adapted, which is itself a form of
 
 ## Not done yet
 
-- Rounds and a timer. Right now it runs forever.
 - No score feedback on the phone; the TV shows everything.
 - Sound.
 - The reticle colours assume four seats; a fifth player would reuse the first colour.

@@ -18,7 +18,7 @@ final class GameHost: RemoteSessionHandler {
     private let queue: DispatchQueue = .main
 
     /// Called on the main queue when a shot resolves, for sound and particles.
-    var onShot: ((UUID, ShotOutcome) -> Void)?
+    var onTrigger: ((UUID, TriggerResult) -> Void)?
     var onRosterChange: (() -> Void)?
 
     init(game: Game) {
@@ -30,7 +30,7 @@ final class GameHost: RemoteSessionHandler {
     func features(for session: RemoteSession) -> [String] {
         // No keyboard, no media, no scrolling: a gun has one button. Advertising only what
         // exists lets the controller hide the rest rather than offering dead UI.
-        ["pointer", "fire", "recenter"]
+        ["pointer", "fire", "recenter", "ready"]
     }
 
     func displays(for session: RemoteSession) -> [DisplayInfo] {
@@ -85,8 +85,12 @@ final class GameHost: RemoteSessionHandler {
         case .leftClick:
             queue.async { [weak self] in
                 guard let self else { return }
-                let outcome = self.game.fire(player: session.id, at: Date().timeIntervalSince1970)
-                self.onShot?(session.id, outcome)
+                // The trigger means "shoot" mid-round and "I'm ready" in the lobby or on
+                // the results screen, so a round can be started from the couch without
+                // anyone touching the Mac.
+                let result = self.game.pullTrigger(player: session.id,
+                                                  at: Date().timeIntervalSince1970)
+                self.onTrigger?(session.id, result)
             }
 
         case .recenter:

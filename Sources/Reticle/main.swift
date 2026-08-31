@@ -97,7 +97,8 @@ window.title = "Reticle"
 window.center()
 window.collectionBehavior = [.fullScreenPrimary]
 
-let game = Game(arena: Arena(width: initialSize.width, height: initialSize.height))
+let game = Game(arena: Arena(width: initialSize.width, height: initialSize.height),
+                settings: .arcade)
 let scene = GameScene(game: game, size: initialSize)
 let skView = SKView(frame: NSRect(origin: .zero, size: initialSize))
 skView.presentScene(scene)
@@ -108,7 +109,7 @@ if options.fullscreen { window.toggleFullScreen(nil) }
 // MARK: - Server
 
 let host = GameHost(game: game)
-host.onShot = { [weak scene] id, outcome in scene?.showShot(player: id, outcome: outcome) }
+host.onTrigger = { [weak scene] id, result in scene?.showTrigger(player: id, result: result) }
 
 var subjectNames = NetworkInterfaces.privateIPv4Addresses()
 if let localName = NetworkInterfaces.localHostName() { subjectNames.append(localName) }

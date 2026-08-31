@@ -10,6 +10,8 @@ public struct PlayerState: Identifiable, Equatable, Sendable {
     /// Consecutive hits. Resets on any miss.
     public var streak: Int = 0
     public var bestStreak: Int = 0
+    /// Said they are ready to start. Meaningless outside the lobby and results screens.
+    public var isReady: Bool = false
 
     public var accuracy: Double { shots == 0 ? 0 : Double(hits) / Double(shots) }
 
@@ -39,6 +41,10 @@ public final class Game {
     public private(set) var arena: Arena
     public private(set) var players: [UUID: PlayerState] = [:]
     public private(set) var targets: [Target] = []
+    public private(set) var phase: Phase = .lobby
+    /// Scores from the round that just finished, kept for the results screen after the
+    /// live scores are cleared for the next one.
+    public private(set) var lastResults: [PlayerState] = []
 
     public var settings: Settings
 
@@ -56,6 +62,10 @@ public final class Game {
         /// Streak multiplier is capped so a long run does not run away with the score.
         public var maxMultiplier = 5
         public var edgeInset: Double = 8
+
+        public var roundDuration: Double = 45
+        public var countdownDuration: Double = 3
+        public var resultsDuration: Double = 12
 
         public init() {}
     }
@@ -87,7 +97,10 @@ public final class Game {
 
     @discardableResult
     public func addPlayer(id: UUID, name: String) -> PlayerState {
-        let player = PlayerState(id: id, name: name, reticle: arena.center)
+        var player = PlayerState(id: id, name: name, reticle: arena.center)
+        // Someone arriving mid-round joins the round in progress rather than waiting it
+        // out: a party game that makes a latecomer watch is a party game nobody finishes.
+        player.isReady = phase.isPlaying
         players[id] = player
         return player
     }
@@ -95,6 +108,12 @@ public final class Game {
     public func removePlayer(id: UUID) {
         players.removeValue(forKey: id)
         lastShotAt.removeValue(forKey: id)
+        // If the last player leaves mid-round, drop back to the lobby rather than running
+        // a match nobody is in.
+        if players.isEmpty, phase.isPlaying || phase == .lobby {
+            targets.removeAll()
+            phase = .lobby
+        }
     }
 
     /// Moves a reticle by a delta from the phone.
@@ -131,6 +150,24 @@ public final class Game {
     }
 
     // MARK: - Shooting
+
+    /// A trigger pull, interpreted for the current phase.
+    ///
+    /// The controller sends the same event throughout; deciding what it means here keeps
+    /// the phone dumb and means a stock AirPoint controller still works.
+    public func pullTrigger(player id: UUID, at now: TimeInterval) -> TriggerResult {
+        guard players[id] != nil else { return .noSuchPlayer }
+        switch phase {
+        case .playing:
+            return .shot(fire(player: id, at: now))
+        case .lobby, .results:
+            let ready = !(players[id]?.isReady ?? false)
+            players[id]?.isReady = ready
+            return .readied(ready)
+        case .countdown:
+            return .ignored
+        }
+    }
 
     public func fire(player id: UUID, at now: TimeInterval) -> ShotOutcome {
         guard var player = players[id] else { return .noSuchPlayer }
@@ -179,20 +216,76 @@ public final class Game {
     /// Advances the world. Returns the targets that expired, for effects.
     @discardableResult
     public func tick(at now: TimeInterval) -> [Target] {
+        advancePhase(at: now)
+        guard phase.isPlaying else {
+            // Nothing lives outside a round, so the lobby and the results screen are calm.
+            if !targets.isEmpty { targets.removeAll() }
+            return []
+        }
+
         let expired = targets.filter { $0.hasExpired(at: now) }
         if !expired.isEmpty {
             let expiredIDs = Set(expired.map(\.id))
             targets.removeAll { expiredIDs.contains($0.id) }
         }
 
-        // No spawning without players, so an idle game does not fill the screen while
-        // everyone is still scanning the QR code.
         guard !players.isEmpty else { return expired }
         if now - lastSpawnAt >= settings.spawnInterval && targets.count < settings.maxTargets {
             lastSpawnAt = now
             targets.append(makeTarget(at: now))
         }
         return expired
+    }
+
+    private func advancePhase(at now: TimeInterval) {
+        switch phase {
+        case .lobby:
+            // Everyone present has to agree. One player alone can start on their own.
+            guard !players.isEmpty, players.values.allSatisfy(\.isReady) else { return }
+            phase = .countdown(startsAt: now + settings.countdownDuration)
+
+        case .countdown(let startsAt):
+            guard now >= startsAt else { return }
+            beginRound(at: now)
+
+        case .playing(let endsAt):
+            guard now >= endsAt else { return }
+            endRound(at: now)
+
+        case .results(let until):
+            guard now >= until else { return }
+            phase = .lobby
+            for id in players.keys { players[id]?.isReady = false }
+        }
+    }
+
+    private func beginRound(at now: TimeInterval) {
+        targets.removeAll()
+        lastSpawnAt = -.infinity
+        lastShotAt.removeAll()
+        for (id, player) in players {
+            var fresh = PlayerState(id: id, name: player.name, reticle: arena.center)
+            fresh.isReady = true
+            players[id] = fresh
+        }
+        phase = .playing(endsAt: now + settings.roundDuration)
+    }
+
+    private func endRound(at now: TimeInterval) {
+        targets.removeAll()
+        lastResults = leaderboard
+        for id in players.keys { players[id]?.isReady = false }
+        phase = .results(until: now + settings.resultsDuration)
+    }
+
+    /// Seconds left in whatever the current phase is counting down to, or nil in the lobby.
+    public func remaining(at now: TimeInterval) -> Double? {
+        switch phase {
+        case .lobby: return nil
+        case .countdown(let at): return max(at - now, 0)
+        case .playing(let at): return max(at - now, 0)
+        case .results(let at): return max(at - now, 0)
+        }
     }
 
     private func makeTarget(at now: TimeInterval) -> Target {

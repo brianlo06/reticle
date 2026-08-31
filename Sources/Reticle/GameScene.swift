@@ -13,6 +13,9 @@ final class GameScene: SKScene {
 
     private let hud = SKNode()
     private let statusLabel = SKLabelNode(fontNamed: "Menlo-Bold")
+    private let phaseLabel = SKLabelNode(fontNamed: "Menlo-Bold")
+    private let timerLabel = SKLabelNode(fontNamed: "Menlo-Bold")
+    private let resultsLabel = SKLabelNode(fontNamed: "Menlo-Bold")
 
     /// Distinct colours per seat, so two players can tell their reticles apart at TV distance.
     private static let seatColors: [NSColor] = [
@@ -43,6 +46,32 @@ final class GameScene: SKScene {
         statusLabel.horizontalAlignmentMode = .center
         statusLabel.verticalAlignmentMode = .bottom
         hud.addChild(statusLabel)
+
+        // The centre of the screen carries whatever the players need to know right now:
+        // who is not ready, the countdown, or the final scores. At television distance a
+        // small corner indicator is invisible.
+        phaseLabel.fontSize = 44
+        phaseLabel.fontColor = NSColor(calibratedWhite: 0.95, alpha: 1)
+        phaseLabel.horizontalAlignmentMode = .center
+        phaseLabel.verticalAlignmentMode = .center
+        phaseLabel.zPosition = 40
+        hud.addChild(phaseLabel)
+
+        resultsLabel.fontSize = 22
+        resultsLabel.fontColor = NSColor(calibratedWhite: 0.75, alpha: 1)
+        resultsLabel.horizontalAlignmentMode = .center
+        resultsLabel.verticalAlignmentMode = .top
+        resultsLabel.numberOfLines = 0
+        resultsLabel.zPosition = 40
+        hud.addChild(resultsLabel)
+
+        timerLabel.fontSize = 26
+        timerLabel.fontColor = NSColor(calibratedWhite: 0.7, alpha: 1)
+        timerLabel.horizontalAlignmentMode = .right
+        timerLabel.verticalAlignmentMode = .top
+        timerLabel.zPosition = 20
+        hud.addChild(timerLabel)
+
         layoutHUD()
     }
 
@@ -53,6 +82,9 @@ final class GameScene: SKScene {
 
     private func layoutHUD() {
         statusLabel.position = CGPoint(x: size.width / 2, y: 18)
+        phaseLabel.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        resultsLabel.position = CGPoint(x: size.width / 2, y: size.height / 2 - 40)
+        timerLabel.position = CGPoint(x: size.width - 20, y: size.height - 30)
     }
 
     override func update(_ currentTime: TimeInterval) {
@@ -69,6 +101,51 @@ final class GameScene: SKScene {
         }
         syncTargets(now: now)
         syncPlayers()
+        syncPhase(now: now)
+    }
+
+    private func syncPhase(now: TimeInterval) {
+        let remaining = game.remaining(at: now)
+
+        switch game.phase {
+        case .lobby:
+            let waiting = game.players.values.filter { !$0.isReady }.count
+            phaseLabel.fontSize = 34
+            phaseLabel.text = game.players.isEmpty
+                ? "Scan the code to join"
+                : (waiting == 0 ? "Starting…" : "Press FIRE when ready  ·  waiting for \(waiting)")
+            resultsLabel.text = ""
+            timerLabel.text = ""
+
+        case .countdown:
+            phaseLabel.fontSize = 96
+            phaseLabel.text = "\(Int(ceil(remaining ?? 0)))"
+            resultsLabel.text = ""
+            timerLabel.text = ""
+
+        case .playing:
+            phaseLabel.text = ""
+            resultsLabel.text = ""
+            let left = Int(ceil(remaining ?? 0))
+            timerLabel.text = String(format: "%d:%02d", left / 60, left % 60)
+            // The last ten seconds turn red, because a timer you have to read is a timer
+            // you will not read while aiming.
+            timerLabel.fontColor = left <= 10
+                ? NSColor(calibratedRed: 1, green: 0.35, blue: 0.3, alpha: 1)
+                : NSColor(calibratedWhite: 0.7, alpha: 1)
+
+        case .results:
+            phaseLabel.fontSize = 40
+            phaseLabel.text = "Round over"
+            let lines = game.lastResults.enumerated().map { index, player in
+                String(format: "%d.  %@   %d   %.0f%%  ·  best streak %d",
+                       index + 1, player.name, player.score, player.accuracy * 100, player.bestStreak)
+            }
+            resultsLabel.text = (lines.isEmpty ? ["No shots fired"] : lines)
+                .joined(separator: "\n") + "\n\nPress FIRE for another round"
+            timerLabel.text = "\(Int(ceil(remaining ?? 0)))"
+            timerLabel.fontColor = NSColor(calibratedWhite: 0.7, alpha: 1)
+        }
     }
 
     private func syncTargets(now: TimeInterval) {
@@ -167,7 +244,22 @@ final class GameScene: SKScene {
 
     // MARK: - Feedback
 
-    func showShot(player id: UUID, outcome: ShotOutcome) {
+    func showTrigger(player id: UUID, result: TriggerResult) {
+        switch result {
+        case .shot(let outcome):
+            showShot(player: id, outcome: outcome)
+        case .readied(let ready):
+            guard let reticle = reticleNodes[id] else { return }
+            reticle.run(.sequence([.scale(to: ready ? 1.5 : 0.7, duration: 0.08),
+                                   .scale(to: 1, duration: 0.12)]))
+            floatText(ready ? "READY" : "not ready", at: reticle.position,
+                      color: ready ? .systemGreen : NSColor(calibratedWhite: 0.6, alpha: 1))
+        case .ignored, .noSuchPlayer:
+            break
+        }
+    }
+
+    private func showShot(player id: UUID, outcome: ShotOutcome) {
         guard let reticle = reticleNodes[id] else { return }
         switch outcome {
         case .hit(_, let points, let multiplier):

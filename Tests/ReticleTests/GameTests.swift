@@ -101,6 +101,17 @@ final class GameTests: XCTestCase {
 
     // MARK: Shooting
 
+    /// Puts the game into a running round, since targets no longer exist outside one.
+    @discardableResult
+    private func startRound(_ game: Game, at now: TimeInterval = 100) -> UUID {
+        let id = UUID()
+        game.addPlayer(id: id, name: "P1")
+        _ = game.pullTrigger(player: id, at: now)
+        game.tick(at: now)
+        game.tick(at: now + game.settings.countdownDuration)
+        return id
+    }
+
     /// Places a target exactly under the player's reticle.
     private func plantTarget(_ game: Game, under id: UUID, at now: TimeInterval,
                              radius: Double = 40, lifetime: Double = 4) -> Target {
@@ -220,8 +231,8 @@ final class GameTests: XCTestCase {
 
     func testTargetsSpawnUpToTheCap() {
         let game = makeGame(maxTargets: 4)
-        game.addPlayer(id: UUID(), name: "P1")
-        var time = 100.0
+        startRound(game)
+        var time = 103.0
         for _ in 0..<200 {
             game.tick(at: time)
             time += 0.1
@@ -231,18 +242,17 @@ final class GameTests: XCTestCase {
 
     func testExpiredTargetsAreReturnedAndRemoved() {
         let game = makeGame()
-        let id = UUID()
-        game.addPlayer(id: id, name: "P1")
-        game.place(Target(center: game.arena.center, radius: 20, spawnedAt: 100, lifetime: 1))
-        let expired = game.tick(at: 102)
+        startRound(game)
+        game.place(Target(center: game.arena.center, radius: 20, spawnedAt: 103, lifetime: 1))
+        let expired = game.tick(at: 105)
         XCTAssertEqual(expired.count, 1)
         XCTAssertFalse(game.targets.contains { $0.id == expired[0].id })
     }
 
     func testSpawnedTargetsStayFullyInsideTheArena() {
         let game = makeGame(maxTargets: 40)
-        game.addPlayer(id: UUID(), name: "P1")
-        var time = 100.0
+        startRound(game)
+        var time = 103.0
         for _ in 0..<400 { game.tick(at: time); time += 0.1 }
         XCTAssertFalse(game.targets.isEmpty)
         for target in game.targets {
@@ -259,9 +269,9 @@ final class GameTests: XCTestCase {
     /// adjusting either constant alone.
     func testTargetPopulationSettlesAtTheSpawnRateEquilibrium() {
         let game = makeGame(maxTargets: 40)
-        game.addPlayer(id: UUID(), name: "P1")
-        var time = 100.0
-        for _ in 0..<600 { game.tick(at: time); time += 0.1 }
+        startRound(game)
+        var time = 103.0
+        for _ in 0..<300 { game.tick(at: time); time += 0.1 }
 
         let settings = game.settings
         let meanLifetime = (settings.targetLifetime.lowerBound + settings.targetLifetime.upperBound) / 2

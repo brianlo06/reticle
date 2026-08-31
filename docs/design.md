@@ -57,3 +57,21 @@ host existing:
 
 Neither would have been found by more careful reading of AirPoint. That is the argument for
 extracting a library by actually building on it rather than by planning to.
+
+## Why the trigger means different things in different phases
+
+The controller sends `left_click` and nothing else — it has no idea what a round is. The
+rules decide whether that means "shoot", "I'm ready" or "nothing right now".
+
+Two reasons. The stock AirPoint controller stays compatible, since it only knows how to
+report a tap. And more practically: a party game where somebody has to walk to the Mac to
+start the next round is a party game that gets played once. Readying up from the trigger
+means the whole match loop happens from the sofa.
+
+Two details that only matter once real people use it:
+
+- Joining mid-round puts you straight into the round in progress. A latecomer who has to
+  watch a 45-second round before playing will put the phone down.
+- A player leaving must not deadlock a lobby that was waiting on their readiness, and the
+  last player leaving returns to the lobby rather than running a match nobody is in. Both
+  are tested, because both are the kind of thing that only bites with a real group.
