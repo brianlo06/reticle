@@ -110,10 +110,13 @@ AirPoint's protocol probe with the assertions adapted, which is itself a form of
 - No score feedback on the phone; the TV shows everything.
 - Sound.
 - The reticle colours assume four seats; a fifth player would reuse the first colour.
-- **No real phone has aimed at it yet.** The game runs, serves its controller, and a
-  simulated player joins over the real protocol and passes 21 assertions — but the feel of
-  aiming, the target sizes and the spawn pacing are all unvalidated by a human holding a
-  phone. Expect those numbers to move.
+- **Tuning is unvalidated.** It has been played on real hardware and works, but the round
+  length, target sizes, spawn pacing and aim gain were all chosen by guess and have had one
+  session of feedback. Reticle inherits AirPoint's `aimGain: 1.0` unchanged, and a game
+  probably wants something twitchier than a cursor remote. All of them are single constants
+  in `Game.Settings`.
+- Only played single-player so far. Four seats are implemented and tested, but no two phones
+  have been in a round together.
 
 ## Licence
 
