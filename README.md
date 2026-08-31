@@ -102,7 +102,10 @@ AirPoint's protocol probe with the assertions adapted, which is itself a form of
 - No score feedback on the phone; the TV shows everything.
 - Sound.
 - The reticle colours assume four seats; a fifth player would reuse the first colour.
-- Only tested with a single player on real hardware.
+- **No real phone has aimed at it yet.** The game runs, serves its controller, and a
+  simulated player joins over the real protocol and passes 21 assertions — but the feel of
+  aiming, the target sizes and the spawn pacing are all unvalidated by a human holding a
+  phone. Expect those numbers to move.
 
 ## Licence
 
