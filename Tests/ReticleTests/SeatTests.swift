@@ -71,6 +71,32 @@ final class SeatTests: XCTestCase {
         XCTAssertEqual(game.players[id]?.seat, seat, "a new round is not a new player")
     }
 
+    /// Everyone is level on score and accuracy in the lobby. Sorting those out of a
+    /// dictionary left their order undefined, so the scoreboard drew names in whichever
+    /// order the hashing happened to give.
+    func testPlayersLevelOnEverythingStillHaveAnOrder() {
+        let game = makeGame()
+        let ids = (0..<4).map { _ in UUID() }
+        for (index, id) in ids.enumerated() { game.addPlayer(id: id, name: "P\(index)") }
+        XCTAssertEqual(game.leaderboard.map(\.seat), [0, 1, 2, 3])
+    }
+
+    func testScoreStillOutranksTheSeat() {
+        let game = makeGame()
+        let first = UUID(), second = UUID()
+        game.addPlayer(id: first, name: "A")
+        game.addPlayer(id: second, name: "B")
+        _ = game.pullTrigger(player: first, at: 0)
+        _ = game.pullTrigger(player: second, at: 0)
+        game.tick(at: 0)
+        game.tick(at: 4)
+        game.recenter(player: second)
+        game.place(Target(center: game.players[second]!.reticle, radius: 40,
+                          spawnedAt: 4, lifetime: 5))
+        _ = game.pullTrigger(player: second, at: 4.5)
+        XCTAssertEqual(game.leaderboard.map(\.seat), [1, 0], "seat is the last word, not the first")
+    }
+
     // MARK: - Palette
 
     func testEverySeatGetsItsOwnColour() {

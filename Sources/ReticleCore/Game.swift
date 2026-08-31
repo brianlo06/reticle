@@ -443,10 +443,18 @@ public final class Game {
         return .standard
     }
 
-    /// Highest score first; ties broken by accuracy so a careful player beats a spammer.
+    /// Highest score first; ties broken by accuracy so a careful player beats a spammer,
+    /// and then by seat.
+    ///
+    /// That last tiebreak is not cosmetic. Players sort out of a dictionary, so two of them
+    /// level on both score and accuracy — which is everybody, in the lobby — had no defined
+    /// order at all, and the scoreboard drew their names in whichever order the hashing
+    /// happened to give. Seat is the one ordering that never moves.
     public var leaderboard: [PlayerState] {
         players.values.sorted {
-            $0.score != $1.score ? $0.score > $1.score : $0.accuracy > $1.accuracy
+            if $0.score != $1.score { return $0.score > $1.score }
+            if $0.accuracy != $1.accuracy { return $0.accuracy > $1.accuracy }
+            return $0.seat < $1.seat
         }
     }
 }
