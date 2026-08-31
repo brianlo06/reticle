@@ -106,10 +106,21 @@ window.contentView = skView
 window.makeKeyAndOrderFront(nil)
 if options.fullscreen { window.toggleFullScreen(nil) }
 
+// A fully occluded window stops being handed drawables, and SpriteKit complains once per
+// frame. Pausing while hidden silences it, and stops burning a GPU on a window nobody can
+// see — which during this session was most of the time, since the terminal was in front.
+let occlusionObserver = NotificationCenter.default.addObserver(
+    forName: NSWindow.didChangeOcclusionStateNotification,
+    object: window, queue: .main
+) { [weak skView] _ in
+    skView?.isPaused = !window.occlusionState.contains(.visible)
+}
+
 // MARK: - Server
 
 let host = GameHost(game: game)
 host.onTrigger = { [weak scene] id, result in scene?.showTrigger(player: id, result: result) }
+scene.onFrame = { [weak host] in host?.logPhaseChanges() }
 
 var subjectNames = NetworkInterfaces.privateIPv4Addresses()
 if let localName = NetworkInterfaces.localHostName() { subjectNames.append(localName) }

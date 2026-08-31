@@ -21,8 +21,41 @@ final class GameHost: RemoteSessionHandler {
     var onTrigger: ((UUID, TriggerResult) -> Void)?
     var onRosterChange: (() -> Void)?
 
+    /// Last phase announced, so the transition is logged once rather than every frame.
+    private var announcedPhase: Phase?
+
     init(game: Game) {
         self.game = game
+    }
+
+    /// Narrates the match to the terminal.
+    ///
+    /// Called from the scene each frame. Without this the log showed a healthy stream of
+    /// pointer telemetry and said nothing about whether a round ever started or anybody
+    /// scored — which made "it worked" impossible to verify from the outside.
+    func logPhaseChanges() {
+        let phase = game.phase
+        guard phase != announcedPhase else { return }
+        announcedPhase = phase
+
+        switch phase {
+        case .lobby:
+            let waiting = game.players.values.filter { !$0.isReady }.count
+            Log.info(game.players.isEmpty
+                     ? "lobby — waiting for players to join"
+                     : "lobby — waiting for \(waiting) of \(game.players.count) to ready up")
+        case .countdown:
+            Log.info("all ready — starting in \(Int(game.settings.countdownDuration))s")
+        case .playing:
+            Log.info("round started (\(Int(game.settings.roundDuration))s, \(game.players.count) playing)")
+        case .results:
+            for (index, player) in game.lastResults.enumerated() {
+                Log.info(String(format: "  %d. %@  %d points, %.0f%% of %d shots, best streak %d",
+                                index + 1, player.name, player.score,
+                                player.accuracy * 100, player.shots, player.bestStreak))
+            }
+            if game.lastResults.isEmpty { Log.info("round over — nobody fired") }
+        }
     }
 
     // MARK: - Capabilities
@@ -90,6 +123,9 @@ final class GameHost: RemoteSessionHandler {
                 // anyone touching the Mac.
                 let result = self.game.pullTrigger(player: session.id,
                                                   at: Date().timeIntervalSince1970)
+                if case .readied(let ready) = result {
+                    Log.info("\(session.deviceName ?? "a player") is \(ready ? "ready" : "not ready")")
+                }
                 self.onTrigger?(session.id, result)
             }
 

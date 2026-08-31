@@ -29,6 +29,9 @@ final class GameScene: SKScene {
         didSet { statusLabel.text = joinHint }
     }
 
+    /// Called once per frame so the host can narrate phase changes to the terminal.
+    var onFrame: (() -> Void)?
+
     init(game: Game, size: CGSize) {
         self.game = game
         super.init(size: size)
@@ -102,6 +105,7 @@ final class GameScene: SKScene {
         syncTargets(now: now)
         syncPlayers()
         syncPhase(now: now)
+        onFrame?()
     }
 
     private func syncPhase(now: TimeInterval) {
