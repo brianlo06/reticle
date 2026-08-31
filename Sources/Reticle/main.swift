@@ -29,7 +29,7 @@ struct Options {
     USAGE: reticle [options]
 
       --port <n>          TLS port (default 8444)
-      --players <n>       Seats, 1-4 (default 4)
+      --players <n>       Seats, 1-8 (default 4)
       --state-dir <path>  TLS identity and trusted devices
       --bind <host>       Interface to bind (default: all private interfaces)
       --auto-approve      Skip the approval prompt. Requires --bind 127.0.0.1.
@@ -57,7 +57,12 @@ struct Options {
             case "--port":
                 if let raw = value(), let port = UInt16(raw), port >= 1024 { options.port = port }
             case "--players":
-                if let raw = value(), let count = Int(raw) { options.maxPlayers = min(max(count, 1), 4) }
+                // Capped by the palette rather than by a number chosen here: past that,
+                // two players would be handed the same colour and could not tell their
+                // crosshairs apart, which is worse than being told the seat is unavailable.
+                if let raw = value(), let count = Int(raw) {
+                    options.maxPlayers = min(max(count, 1), SeatPalette.capacity)
+                }
             case "--state-dir":
                 if let raw = value() { options.stateDirectory = URL(fileURLWithPath: (raw as NSString).expandingTildeInPath) }
             case "--bind":

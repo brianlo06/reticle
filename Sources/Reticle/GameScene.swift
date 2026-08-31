@@ -23,13 +23,13 @@ final class GameScene: SKScene {
     private let timerLabel = SKLabelNode(fontNamed: "Menlo-Bold")
     private let resultsLabel = SKLabelNode(fontNamed: "Menlo-Bold")
 
-    /// Distinct colours per seat, so two players can tell their reticles apart at TV distance.
-    private static let seatColors: [NSColor] = [
-        NSColor(calibratedRed: 0.30, green: 0.55, blue: 1.00, alpha: 1),
-        NSColor(calibratedRed: 1.00, green: 0.42, blue: 0.35, alpha: 1),
-        NSColor(calibratedRed: 0.35, green: 0.85, blue: 0.50, alpha: 1),
-        NSColor(calibratedRed: 1.00, green: 0.78, blue: 0.28, alpha: 1),
-    ]
+    /// Distinct colours per seat, so players can tell their reticles apart at TV distance.
+    /// The spacing is `SeatPalette`'s problem, and it is checked there.
+    private static func color(seat: Int) -> NSColor {
+        let (hue, saturation, brightness) = SeatPalette.color(seat: seat)
+        return NSColor(calibratedHue: CGFloat(hue), saturation: CGFloat(saturation),
+                       brightness: CGFloat(brightness), alpha: 1)
+    }
 
     var joinHint: String = "" {
         didSet { statusLabel.text = joinHint }
@@ -286,7 +286,10 @@ final class GameScene: SKScene {
         }
 
         for (index, player) in seats.enumerated() {
-            let color = Self.seatColors[index % Self.seatColors.count]
+            // Colour comes from the seat, position in the list from the score. Tying both
+            // to the leaderboard meant a player's crosshair changed colour the moment they
+            // overtook somebody — mid-round, while they were following it.
+            let color = Self.color(seat: player.seat)
             let node = reticleNodes[player.id] ?? makeReticleNode(for: player.id, color: color)
             node.position = CGPoint(x: player.reticle.x, y: player.reticle.y)
             // An eliminated player keeps their reticle so they can watch, but it stops

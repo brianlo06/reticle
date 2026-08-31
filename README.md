@@ -41,7 +41,7 @@ On each player's phone:
 
 ```
 --port <n>          TLS port (default 8444, one above AirPoint so both can run at once)
---players <n>       Seats, 1–4 (default 4)
+--players <n>       Seats, 1–8 (default 4)
 --fullscreen        Start filling the screen
 --mute              Start silent. M toggles it.
 --sensitivity <n>   Aim multiplier, 0.25–4 (default 1). [ and ] adjust it live.
@@ -82,6 +82,9 @@ rather than making you watch.
   never happened, so it cannot break a streak.
 - Overlapping targets resolve to the nearest one, so aiming into a cluster is not a coin flip.
 - Ties on the leaderboard break toward the more accurate player.
+- **Your crosshair colour comes from your seat, not your rank.** Seats are handed out
+  lowest-free and held for as long as you are connected, so overtaking somebody does not
+  recolour the thing you are trying to follow across the screen.
 
 **Aiming is relative, not absolute.** The phone reports how far it turned, not where it
 points, because absolute aiming needs a magnetometer heading that is unusable indoors next
@@ -189,14 +192,13 @@ testing convenience, not a hosting mode.
 
 ## Not done yet
 
-- The reticle colours assume four seats; a fifth player would reuse the first colour.
 - **Tuning is still unvalidated.** The round length, target sizes and spawn pacing were
   chosen by guess and have had one session of feedback. Aim is the exception only in that it
   can now be settled without a rebuild: `[` and `]` adjust it mid-round and the value is
   logged so it can be passed back as `--sensitivity`. The starting numbers are a
   better-reasoned guess than `aimGain: 1.0`, not a measured one.
 - Only played single-player on real hardware. Multiplayer is verified by
-  `tools/multiplayer-check.mjs` — four concurrent sessions, simultaneous fire, per-player
+  `tools/multiplayer-check.mjs` — six concurrent sessions, simultaneous fire, per-player
   feedback and seat eviction all pass against a live host — but no two actual phones have
   been in a round together.
 - Modes and moving targets are tested but have not been played on hardware.

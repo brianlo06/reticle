@@ -2,6 +2,11 @@ import Foundation
 
 public struct PlayerState: Identifiable, Equatable, Sendable {
     public let id: UUID
+    /// Which seat this player holds, counted from zero and held for as long as they are
+    /// connected. It decides their colour, so it must not move: the scene used to colour
+    /// reticles by leaderboard position, which meant your crosshair changed colour the
+    /// instant you overtook somebody — during a round, while you were following it.
+    public let seat: Int
     public var name: String
     public var reticle: Vec2
     public var score: Int = 0
@@ -17,8 +22,9 @@ public struct PlayerState: Identifiable, Equatable, Sendable {
 
     public var accuracy: Double { shots == 0 ? 0 : Double(hits) / Double(shots) }
 
-    public init(id: UUID, name: String, reticle: Vec2) {
+    public init(id: UUID, seat: Int, name: String, reticle: Vec2) {
         self.id = id
+        self.seat = seat
         self.name = name
         self.reticle = reticle
     }
@@ -138,12 +144,23 @@ public final class Game {
 
     @discardableResult
     public func addPlayer(id: UUID, name: String) -> PlayerState {
-        var player = PlayerState(id: id, name: name, reticle: arena.center)
+        // Reuse the seat if this player is already in — a reconnect should not walk them
+        // down the palette — otherwise take the lowest free one, so four players who have
+        // cycled through eight sessions still hold seats 0 to 3.
+        let seat = players[id]?.seat ?? lowestFreeSeat()
+        var player = PlayerState(id: id, seat: seat, name: name, reticle: arena.center)
         // Someone arriving mid-round joins the round in progress rather than waiting it
         // out: a party game that makes a latecomer watch is a party game nobody finishes.
         player.isReady = phase.isPlaying
         players[id] = player
         return player
+    }
+
+    private func lowestFreeSeat() -> Int {
+        let taken = Set(players.values.map(\.seat))
+        var seat = 0
+        while taken.contains(seat) { seat += 1 }
+        return seat
     }
 
     public func removePlayer(id: UUID) {
@@ -320,7 +337,8 @@ public final class Game {
         lastSpawnAt = -.infinity
         lastShotAt.removeAll()
         for (id, player) in players {
-            var fresh = PlayerState(id: id, name: player.name, reticle: arena.center)
+            var fresh = PlayerState(id: id, seat: player.seat, name: player.name,
+                                    reticle: arena.center)
             fresh.isReady = true
             players[id] = fresh
         }

@@ -6,7 +6,7 @@
 // and the eviction rule when the seats are full. Those are exactly the things that work in
 // isolation and break together.
 //
-//   node tools/multiplayer-check.mjs --code 123456 [--port 8444] [--players 3]
+//   node tools/multiplayer-check.mjs --code 123456 [--port 8444] [--players 3] [--seats 4]
 
 import crypto from 'node:crypto';
 
@@ -22,8 +22,12 @@ const host = args.host ?? '127.0.0.1';
 const port = args.port ?? '8444';
 const code = args.code;
 const playerCount = Number(args.players ?? 3);
+// How many seats the host was started with. Taken as an argument rather than assumed,
+// because the number is now a launch option: hard-coding four here meant that raising the
+// seat limit made this tool report a failure in itself.
+const seatCount = Number(args.seats ?? 4);
 if (!code) {
-  console.error('usage: node tools/multiplayer-check.mjs --code <6 digits> [--players n]');
+  console.error('usage: node tools/multiplayer-check.mjs --code <6 digits> [--players n] [--seats n]');
   process.exit(2);
 }
 
@@ -151,8 +155,8 @@ try {
   // One more than the seats: the oldest session should be evicted, not the newcomer refused.
   const overflow = await new Player(99).connect();
   await sleep(400);
-  if (playerCount >= 4) {
-    check('a fifth player evicts the oldest rather than being refused',
+  if (playerCount >= seatCount) {
+    check(`player ${seatCount + 1} of ${seatCount} seats evicts the oldest rather than being refused`,
       overflow.welcome !== null && players[0].errorCodes.includes('session_replaced'),
       `overflow seated=${overflow.welcome !== null}`);
   } else {
