@@ -23,9 +23,14 @@ swift build
 ./.build/debug/reticle
 ```
 
-A window opens and the terminal prints a QR code. On each player's phone:
+**The QR code is on the game screen**, in the lobby, alongside the address and the six-digit
+code. Nobody has to look at the terminal — which is the point, since it is invisible when the
+game is fullscreen on a television. The panel disappears when a round starts and comes back
+between rounds, and the code refreshes on screen when it rotates.
 
-1. Scan the QR code, or open the printed `https://<your-mac-ip>:8444`.
+On each player's phone:
+
+1. Scan the QR code on the TV, or open `https://<your-mac-ip>:8444`.
 2. Safari warns that the certificate is untrusted. Expected — the game signs its own,
    because it runs on your machine rather than a public server. *Show Details* →
    *visit this website*. TLS is not optional: `DeviceMotionEvent` is a secure-context API,

@@ -189,6 +189,9 @@ let joinURL = secret.pairingURL(host: primaryHost, port: options.port,
                                 fingerprint: identity.certificateFingerprint)
 
 scene.joinHint = "Join at https://\(primaryHost):\(options.port)   ·   code \(secret.displayCode)"
+scene.showJoinCode(url: joinURL,
+                   address: "\(primaryHost):\(options.port)",
+                   code: secret.displayCode)
 
 var banner = """
 
@@ -216,6 +219,21 @@ banner += """
 
 """
 FileHandle.standardError.write(Data(banner.utf8))
+
+// The code on screen must always be the live one. A QR that rotated out from under the
+// player is indistinguishable from a broken pairing — the same trap the terminal banner hit.
+var displayedCode = secret.displayCode
+let codeRefresh = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+    let current = pairing.currentSecret()
+    guard current.displayCode != displayedCode else { return }
+    displayedCode = current.displayCode
+    let url = current.pairingURL(host: primaryHost, port: options.port,
+                                 fingerprint: identity.certificateFingerprint)
+    scene.showJoinCode(url: url, address: "\(primaryHost):\(options.port)",
+                       code: current.displayCode)
+    Log.info("pairing code rotated to \(current.displayCode)")
+}
+RunLoop.main.add(codeRefresh, forMode: .common)
 
 // MARK: - Shutdown
 

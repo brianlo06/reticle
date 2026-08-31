@@ -11,7 +11,7 @@ let package = Package(
     dependencies: [
         // The transport, pairing, TLS and motion pipeline all come from AirPoint. This game
         // adds a handler and a scene; it reimplements none of that.
-        .package(url: "https://github.com/brianlo06/airpoint.git", .upToNextMinor(from: "0.3.1")),
+        .package(url: "https://github.com/brianlo06/airpoint.git", .upToNextMinor(from: "0.3.2")),
     ],
     targets: [
         // Game rules, deliberately free of SpriteKit and of the network, so they can be

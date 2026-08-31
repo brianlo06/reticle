@@ -1,5 +1,6 @@
 import AppKit
 import SpriteKit
+import RemoteServer
 import ReticleCore
 
 /// Draws the arena. Owns no rules — it reads `Game` each frame and renders what it finds,
@@ -12,6 +13,11 @@ final class GameScene: SKScene {
     private var scoreLabels: [UUID: SKLabelNode] = [:]
 
     private let hud = SKNode()
+    private let joinPanel = SKNode()
+    private let qrNode = SKSpriteNode()
+    private let qrBacking = SKShapeNode(rectOf: CGSize(width: 288, height: 288), cornerRadius: 12)
+    private let joinURLLabel = SKLabelNode(fontNamed: "Menlo-Bold")
+    private let joinCodeLabel = SKLabelNode(fontNamed: "Menlo-Bold")
     private let statusLabel = SKLabelNode(fontNamed: "Menlo-Bold")
     private let phaseLabel = SKLabelNode(fontNamed: "Menlo-Bold")
     private let timerLabel = SKLabelNode(fontNamed: "Menlo-Bold")
@@ -28,6 +34,25 @@ final class GameScene: SKScene {
     var joinHint: String = "" {
         didSet { statusLabel.text = joinHint }
     }
+
+    /// How to join, shown on the television itself.
+    ///
+    /// The terminal is invisible when the game is fullscreen on a TV, which is exactly when
+    /// people need to join. Putting the code where everyone is already looking removes the
+    /// only step that required someone to walk to the Mac.
+    func showJoinCode(url: String, address: String, code: String) {
+        joinURLText = "https://\(address)"
+        joinCodeText = code
+        guard let image = QRCode.cgImage(for: url) else { return }
+        let texture = SKTexture(cgImage: image)
+        // Nearest-neighbour: smoothing a QR code is the quickest way to make it unscannable.
+        texture.filteringMode = .nearest
+        qrNode.texture = texture
+        qrNode.size = CGSize(width: 260, height: 260)
+    }
+
+    private var joinURLText = ""
+    private var joinCodeText = ""
 
     /// Called once per frame so the host can narrate phase changes to the terminal.
     var onFrame: (() -> Void)?
@@ -75,6 +100,31 @@ final class GameScene: SKScene {
         timerLabel.zPosition = 20
         hud.addChild(timerLabel)
 
+        // A white backing plate, because a QR code rendered straight onto a near-black
+        // background has no quiet zone to speak of and scans badly.
+        qrBacking.fillColor = .white
+        qrBacking.strokeColor = .clear
+        qrBacking.zPosition = 50
+        joinPanel.addChild(qrBacking)
+
+        qrNode.zPosition = 51
+        joinPanel.addChild(qrNode)
+
+        joinURLLabel.fontSize = 20
+        joinURLLabel.fontColor = NSColor(calibratedWhite: 0.8, alpha: 1)
+        joinURLLabel.horizontalAlignmentMode = .center
+        joinURLLabel.zPosition = 51
+        joinPanel.addChild(joinURLLabel)
+
+        joinCodeLabel.fontSize = 34
+        joinCodeLabel.fontColor = NSColor(calibratedWhite: 0.95, alpha: 1)
+        joinCodeLabel.horizontalAlignmentMode = .center
+        joinCodeLabel.zPosition = 51
+        joinPanel.addChild(joinCodeLabel)
+
+        joinPanel.zPosition = 50
+        addChild(joinPanel)
+
         layoutHUD()
     }
 
@@ -85,9 +135,18 @@ final class GameScene: SKScene {
 
     private func layoutHUD() {
         statusLabel.position = CGPoint(x: size.width / 2, y: 18)
-        phaseLabel.position = CGPoint(x: size.width / 2, y: size.height / 2)
-        resultsLabel.position = CGPoint(x: size.width / 2, y: size.height / 2 - 40)
         timerLabel.position = CGPoint(x: size.width - 20, y: size.height - 30)
+
+        // In the lobby the join panel is the point of the screen, so it takes the middle and
+        // the prompts sit under it. Everywhere else the middle belongs to the game.
+        let panelCenterY = size.height * 0.58
+        qrBacking.position = CGPoint(x: size.width / 2, y: panelCenterY)
+        qrNode.position = qrBacking.position
+        joinURLLabel.position = CGPoint(x: size.width / 2, y: panelCenterY - 176)
+        joinCodeLabel.position = CGPoint(x: size.width / 2, y: panelCenterY - 218)
+
+        phaseLabel.position = CGPoint(x: size.width / 2, y: size.height * 0.26)
+        resultsLabel.position = CGPoint(x: size.width / 2, y: size.height * 0.22)
     }
 
     override func update(_ currentTime: TimeInterval) {
@@ -111,12 +170,22 @@ final class GameScene: SKScene {
     private func syncPhase(now: TimeInterval) {
         let remaining = game.remaining(at: now)
 
+        // The join panel is only useful before a round; during play it would cover the
+        // arena, and its code is stale the moment somebody has used it anyway.
+        joinPanel.isHidden = game.phase.isPlaying || {
+            if case .countdown = game.phase { return true }
+            return false
+        }()
+        joinURLLabel.text = joinURLText
+        joinCodeLabel.text = joinCodeText.isEmpty ? "" : "code \(joinCodeText)"
+
         switch game.phase {
         case .lobby:
             let waiting = game.players.values.filter { !$0.isReady }.count
             phaseLabel.fontSize = 34
+            phaseLabel.fontSize = 30
             phaseLabel.text = game.players.isEmpty
-                ? "Scan the code to join"
+                ? "Scan with your phone's camera to join"
                 : (waiting == 0 ? "Starting…" : "Press FIRE when ready  ·  waiting for \(waiting)")
             resultsLabel.text = "\(game.mode.title.uppercased())  ·  \(game.mode.summary)"
                 + "\n\nRight-click on your phone to change mode"
