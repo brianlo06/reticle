@@ -20,6 +20,7 @@ struct Options {
     var autoApprove = false
     var logLevel: Log.Level = .info
     var fullscreen = false
+    var mute = false
 
     static let usage = """
     reticle — a phone-aimed shooting gallery for your TV
@@ -32,6 +33,7 @@ struct Options {
       --bind <host>       Interface to bind (default: all private interfaces)
       --auto-approve      Skip the approval prompt. Requires --bind 127.0.0.1.
       --fullscreen        Start filling the screen
+      --mute              Start with the television silent (M toggles it)
       --log-level <l>     debug | info | warn | error
       -h, --help          This help
 
@@ -62,6 +64,8 @@ struct Options {
                 options.autoApprove = true
             case "--fullscreen":
                 options.fullscreen = true
+            case "--mute":
+                options.mute = true
             case "--log-level":
                 switch value()?.lowercased() {
                 case "debug": options.logLevel = .debug
@@ -160,6 +164,18 @@ let occlusionObserver = NotificationCenter.default.addObserver(
 let host = GameHost(game: game)
 host.onTrigger = { [weak scene] id, result in scene?.showTrigger(player: id, result: result) }
 scene.onFrame = { [weak host] in host?.logPhaseChanges() }
+
+// The room's half of the feedback. The phone kicks in your hand; this is what everyone
+// watching hears. Both render the same cues, so there is one place that decides meaning.
+// A Mac that will not give us an output device is silent and otherwise unaffected.
+let audio = GameAudio(muted: options.mute)
+if audio == nil { Log.warn("running without sound") }
+host.onCue = { [weak audio] cue in audio?.play(cue) }
+scene.onToggleMute = { [weak audio] in
+    guard let audio else { return nil }
+    audio.isMuted.toggle()
+    return audio.isMuted
+}
 
 var subjectNames = NetworkInterfaces.privateIPv4Addresses()
 if let localName = NetworkInterfaces.localHostName() { subjectNames.append(localName) }

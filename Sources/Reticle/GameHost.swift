@@ -17,9 +17,16 @@ final class GameHost: RemoteSessionHandler {
     /// funnelled to the main queue. Sessions arrive on arbitrary queues.
     private let queue: DispatchQueue = .main
 
-    /// Called on the main queue when a shot resolves, for sound and particles.
+    /// Called on the main queue when a shot resolves, for particles.
     var onTrigger: ((UUID, TriggerResult) -> Void)?
     var onRosterChange: (() -> Void)?
+    /// Every cue this host raises, whoever it was addressed to.
+    ///
+    /// The television hears the whole room: a cue meant for one player's phone is still
+    /// something the other three should hear happen. The Mac renders the same vocabulary
+    /// the phones do rather than being told about game events separately, so there is one
+    /// place — `Feedback` — that decides what anything means.
+    var onCue: ((CuePayload) -> Void)?
 
     /// Last phase announced, so the transition is logged once rather than every frame.
     private var announcedPhase: Phase?
@@ -32,9 +39,18 @@ final class GameHost: RemoteSessionHandler {
         self.game = game
     }
 
-    private func broadcast(_ cue: CuePayload) {
-        for session in sessions.values { session.send(cue: cue) }
+    /// Send a cue to one player, or to everyone when `session` is nil. Either way the room
+    /// hears it.
+    private func emit(_ cue: CuePayload, to session: RemoteSession? = nil) {
+        if let session {
+            session.send(cue: cue)
+        } else {
+            for session in sessions.values { session.send(cue: cue) }
+        }
+        onCue?(cue)
     }
+
+    private func broadcast(_ cue: CuePayload) { emit(cue) }
 
     /// One pulse per second of the countdown, and for the last seconds of a round, so the
     /// clock is felt rather than watched — the point of aiming with a phone is that you can
@@ -165,8 +181,8 @@ final class GameHost: RemoteSessionHandler {
                 if case .readied(let ready) = result {
                     Log.info("\(session.deviceName ?? "a player") is \(ready ? "ready" : "not ready")")
                 }
-                // Only the player who pulled the trigger feels it.
-                if let cue = Feedback.cue(for: result) { session.send(cue: cue) }
+                // Only the player who pulled the trigger feels it — but everybody hears it.
+                if let cue = Feedback.cue(for: result) { self.emit(cue, to: session) }
                 self.onTrigger?(session.id, result)
             }
 
@@ -182,8 +198,8 @@ final class GameHost: RemoteSessionHandler {
                 guard let index = modes.firstIndex(of: self.game.mode) else { return }
                 let next = modes[(index + 1) % modes.count]
                 guard self.game.setMode(next) else {
-                    session.send(cue: CuePayload(kind: .failure, intensity: 0.3,
-                                                 text: "Not mid-round"))
+                    self.emit(CuePayload(kind: .failure, intensity: 0.3,
+                                         text: "Not mid-round"), to: session)
                     return
                 }
                 Log.info("mode: \(next.title) — \(next.summary)")

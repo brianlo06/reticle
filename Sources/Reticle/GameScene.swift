@@ -56,6 +56,10 @@ final class GameScene: SKScene {
 
     /// Called once per frame so the host can narrate phase changes to the terminal.
     var onFrame: (() -> Void)?
+    /// Flips the sound and reports the new state, or `nil` if this Mac has no sound to
+    /// flip. Bound to M, because the one person near the keyboard is usually the one being
+    /// asked to turn it down.
+    var onToggleMute: (() -> Bool?)?
 
     init(game: Game, size: CGSize) {
         self.game = game
@@ -364,6 +368,27 @@ final class GameScene: SKScene {
         case .tooSoon, .noSuchPlayer:
             break   // deliberately silent; nothing happened
         }
+    }
+
+    override func keyDown(with event: NSEvent) {
+        guard !event.modifierFlags.contains(.command) else {
+            super.keyDown(with: event)
+            return
+        }
+        switch event.charactersIgnoringModifiers?.lowercased() {
+        case "m":
+            guard let muted = onToggleMute?() else { return }
+            announce(muted ? "SOUND OFF" : "SOUND ON")
+        default:
+            super.keyDown(with: event)
+        }
+    }
+
+    /// A short line in the middle of the screen, for the handful of things adjusted from
+    /// the keyboard rather than from a phone.
+    private func announce(_ text: String) {
+        floatText(text, at: CGPoint(x: size.width / 2, y: size.height * 0.42),
+                  color: NSColor(calibratedWhite: 0.8, alpha: 1))
     }
 
     private func floatText(_ text: String, at point: CGPoint, color: NSColor) {

@@ -91,6 +91,32 @@ game opts out. It is a real relaxation and worth naming: someone who photographs
 within the five-minute TTL can attempt to join. They arrive as an approval prompt on the
 host, which is the control that actually matters, and the attempt lockout is unchanged.
 
+## Why the Mac renders cues rather than game events
+
+The obvious way to add sound is a call at each interesting moment: play a noise when a
+target dies, another when a round starts. That gives you two descriptions of what matters
+in the game — one for the phones, one for the speakers — and they drift, because nothing
+forces them to agree.
+
+Instead the Mac subscribes to the cues the host already raises for the phones. `Feedback`
+decides what happened and how much it matters; `Sound` decides what that sounds like here.
+A cue addressed to one player's phone is still played aloud, because a shared television is
+a shared television — the other three should hear you hit it.
+
+The nice consequence is that adding a game event costs one mapping, not two, and that a
+cue with no sound is a visible hole in a switch rather than a silence nobody notices.
+
+## Why the synthesis lives with the rules
+
+`Sound.samples(for:sampleRate:)` is in `ReticleCore`, next to the scoring. It is arithmetic
+with no dependency on AVFoundation, which means the things that make game audio sound cheap
+are testable: a buffer that starts or ends on a non-zero sample clicks, four simultaneous
+hits should soft-clip rather than tear, and the same cue must render identically every time
+or the click reads as a fault rather than as a gun.
+
+What is left in `Audio.swift` is the part that genuinely needs hardware — an engine, a pool
+of voices, and a note about output devices changing when you plug into a television.
+
 ## Why the clock is not the render loop
 
 SpriteKit drove the game from its frame callback, and the view is paused when the window is

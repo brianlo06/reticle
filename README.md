@@ -43,6 +43,7 @@ On each player's phone:
 --port <n>          TLS port (default 8444, one above AirPoint so both can run at once)
 --players <n>       Seats, 1–4 (default 4)
 --fullscreen        Start filling the screen
+--mute              Start silent. M toggles it.
 --auto-approve      Skip the approval prompt. Testing only.
 ```
 
@@ -106,6 +107,8 @@ What this repository actually adds:
   underneath already knew how to get a validated `pointer_move` from a phone to this machine
   safely.
 - **`Sources/Reticle/GameScene.swift`** — SpriteKit rendering.
+- **`Sources/Reticle/Audio.swift`** — an `AVAudioEngine` and a pool of voices. Only
+  plumbing; the arithmetic that makes the sound is in `ReticleCore/Tone.swift`.
 - **`Sources/Reticle/Resources/web/`** — a controller with an aim pad and a trigger.
 
 `ServerConfig.maxConcurrentSessions` is the one line separating the two products: AirPoint
@@ -129,23 +132,44 @@ AirPoint's protocol probe with the assertions adapted, which is itself a form of
 
 ## Feedback
 
-The phone is a gun that kicks. The Mac sends back short cues and the phone renders them as a
-haptic pulse plus a synthesised tone:
+The phone is a gun that kicks, and the television is the room. The Mac raises short cues;
+the phone renders them as a haptic pulse plus a synthesised tone, and the Mac plays them
+through whatever the TV is plugged into:
 
 | | |
 |---|---|
-| Hit | Rising click; harder the longer your streak, with the score flashed on screen |
-| Miss | Low buzz |
+| Hit | A click and a rising note; both climb with your streak, with the score flashed on screen |
+| Miss | Low falling buzz |
 | Ready / countdown | One beat per second, so `3, 2, 1` is felt rather than watched |
 | Round start / end | A fanfare and a long buzz |
 | A shot the cooldown refused | **Nothing.** It never happened, so it must not be felt |
 
-Tones are synthesised in the browser rather than loaded, so there are no audio assets and no
-failure mode where the sound arrives after the moment it was for.
+Tones are synthesised at both ends rather than loaded — in the browser on the phone, at
+launch on the Mac — so there are no audio assets to ship, nothing to preload, and no failure
+mode where the sound arrives after the moment it was for.
 
 The cue vocabulary lives in AirPoint's protocol and is about *feel*, not meaning —
 `success` at some intensity, never `targetDestroyed`. The host owns meaning, the client owns
 presentation, and any other project built on `RemoteServer` inherits it.
+
+**The Mac is one of those clients.** It renders the same vocabulary rather than being told
+about game events separately, so there is exactly one place that decides what anything
+means. What differs is presentation: the phone has a vibration motor and a speaker the size
+of a coin, the television has the room. A cue addressed to one player's phone is still
+played out loud, because the other three should hear it happen.
+
+Everything is synthesised — `Sound.notes(for:)` picks the notes, `Sound.samples(for:)` turns
+them into audio, and both are plain arithmetic in `ReticleCore` with tests. What a hit
+sounds like is a design decision like any other, and "the round-over fanfare ends on a
+click" is a bug that should not need a sound card to catch. Two rules earn their keep:
+
+- **Repeats inside 45ms are dropped, not queued.** Four players at a 0.16s cooldown can land
+  two dozen shots a second between them; played faithfully that is a buzz, not feedback.
+  Countdown beats and round boundaries are never coalesced — those happen once, and
+  swallowing one would hide a bug upstream.
+- **Plugging the Mac into the television restarts the engine.** An output-device change
+  stops `AVAudioEngine`, and that change *is* the moment this game gets set up. Without
+  handling it the sound works on the desk and is silent on the TV.
 
 ## Playing from elsewhere
 
@@ -164,7 +188,6 @@ testing convenience, not a hosting mode.
 
 ## Not done yet
 
-- Sound.
 - The reticle colours assume four seats; a fifth player would reuse the first colour.
 - **Tuning is unvalidated.** It has been played on real hardware and works, but the round
   length, target sizes, spawn pacing and aim gain were all chosen by guess and have had one
