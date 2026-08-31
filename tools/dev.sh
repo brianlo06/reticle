@@ -15,7 +15,10 @@ swift test 2>&1 | grep -E "Executed [0-9]+ tests" | tail -1
 
 mkdir -p "$STATE"
 echo "==> starting the game (loopback, auto-approve, state in $STATE)"
-./.build/debug/reticle --port "$PORT" --state-dir "$STATE" --auto-approve --log-level info > "$LOG" 2>&1 &
+# --bind is not optional alongside --auto-approve: the game refuses to approve players
+# automatically on an interface anyone else can reach.
+./.build/debug/reticle --port "$PORT" --state-dir "$STATE" --bind 127.0.0.1 --auto-approve \
+  --log-level info > "$LOG" 2>&1 &
 GAME=$!
 trap 'kill $GAME 2>/dev/null || true' EXIT
 
