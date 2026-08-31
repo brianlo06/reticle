@@ -67,14 +67,19 @@ public enum Scoreboard {
                           isUrgent: left <= urgentSeconds, showsJoinPanel: false)
 
         case .results:
+            // There is always at least one row. A round cannot end with nobody in it: the
+            // last player to leave one drops the game back to the lobby rather than
+            // finishing the round, which `RoundTests.testTheLastPlayerLeavingReturnsToTheLobby`
+            // is what holds. This used to carry a "No shots fired" fallback for a state the
+            // rules do not allow — a quiet round still lists everybody, at zero.
             let lines = game.lastResults.enumerated().map { index, player in
                 String(format: "%d.  %@   %d   %.0f%%  ·  best streak %d",
                        index + 1, player.name, player.score,
                        player.accuracy * 100, player.bestStreak)
             }
             return Screen(headline: "\(game.mode.title) over", emphasis: .verdict,
-                          body: (lines.isEmpty ? ["No shots fired"] : lines)
-                              .joined(separator: "\n") + "\n\nPress FIRE for another round",
+                          body: lines.joined(separator: "\n")
+                              + "\n\nPress FIRE for another round",
                           clock: "\(left)", isUrgent: false, showsJoinPanel: true)
         }
     }
