@@ -18,7 +18,7 @@ import {
 } from '/motion.js';
 
 const PROTOCOL_VERSION = 1;
-const CLIENT_VERSION = '0.2.0';
+const CLIENT_VERSION = '0.3.0';
 const MAX_BUFFERED_BYTES = 32 * 1024;
 
 const $ = (id) => document.getElementById(id);
@@ -412,6 +412,13 @@ class Controller {
       Cue.unlock();
       this.send('left_click', { clicks: 1 });
     }, { passive: false });
+
+    // Cycles the game mode. Sends right_click, which the host interprets — the controller
+    // deliberately does not know what modes exist.
+    $('mode').addEventListener('click', () => {
+      Cue.unlock();
+      this.send('right_click', { clicks: 1 });
+    });
 
     $('recenter').addEventListener('click', () => {
       if (this.attitude) this.pipeline.recenter(this.attitude);

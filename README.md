@@ -41,6 +41,23 @@ A window opens and the terminal prints a QR code. On each player's phone:
 --auto-approve      Skip the approval prompt. Testing only.
 ```
 
+## Modes
+
+Press **Mode** on the phone in the lobby to cycle. Changing mid-round is refused — it would
+invalidate the scores the round is about to report.
+
+| | |
+|---|---|
+| **Arcade** | 45s, mixed sizes, gentle drift |
+| **Precision** | Small, slow, long-lived targets and a longer cooldown. Rewards a steady hand over a fast one. |
+| **Survival** | Fast and small. Three misses and you are out; the round ends when everyone is. |
+
+A mode is a named set of `Game.Settings` rather than a branch in the rules, so every mode is
+covered by the same tests and adding one is a matter of choosing numbers.
+
+Targets drift and **bounce off the walls** rather than wrapping — a target that teleports
+across the arena cannot be tracked, and tracking is the point of making them move.
+
 ## How a round works
 
 **Lobby** → everyone presses FIRE to ready up. **Countdown** → 3, 2, 1. **Round** → 45
@@ -136,6 +153,7 @@ presentation, and any other project built on `RemoteServer` inherits it.
   in `Game.Settings`.
 - Only played single-player so far. Four seats are implemented and tested, but no two phones
   have been in a round together.
+- Modes and moving targets are tested but have not been played on hardware.
 
 ## Licence
 

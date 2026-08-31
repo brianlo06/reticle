@@ -118,7 +118,8 @@ final class GameScene: SKScene {
             phaseLabel.text = game.players.isEmpty
                 ? "Scan the code to join"
                 : (waiting == 0 ? "Starting…" : "Press FIRE when ready  ·  waiting for \(waiting)")
-            resultsLabel.text = ""
+            resultsLabel.text = "\(game.mode.title.uppercased())  ·  \(game.mode.summary)"
+                + "\n\nRight-click on your phone to change mode"
             timerLabel.text = ""
 
         case .countdown:
@@ -140,7 +141,7 @@ final class GameScene: SKScene {
 
         case .results:
             phaseLabel.fontSize = 40
-            phaseLabel.text = "Round over"
+            phaseLabel.text = "\(game.mode.title) over"
             let lines = game.lastResults.enumerated().map { index, player in
                 String(format: "%d.  %@   %d   %.0f%%  ·  best streak %d",
                        index + 1, player.name, player.score, player.accuracy * 100, player.bestStreak)
@@ -203,9 +204,14 @@ final class GameScene: SKScene {
             let color = Self.seatColors[index % Self.seatColors.count]
             let node = reticleNodes[player.id] ?? makeReticleNode(for: player.id, color: color)
             node.position = CGPoint(x: player.reticle.x, y: player.reticle.y)
+            // An eliminated player keeps their reticle so they can watch, but it stops
+            // looking live.
+            node.alpha = player.isEliminated ? 0.25 : 1
 
             let label = scoreLabels[player.id] ?? makeScoreLabel(for: player.id, color: color)
+            label.alpha = player.isEliminated ? 0.4 : 1
             label.text = "\(player.name)   \(player.score)"
+                + (player.isEliminated ? "   OUT" : "")
                 + (player.streak >= 3 ? "   x\(min(1 + (player.streak - 1) / 3, game.settings.maxMultiplier))" : "")
             label.position = CGPoint(x: 20, y: size.height - 30 - CGFloat(index) * 26)
         }

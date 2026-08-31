@@ -150,6 +150,16 @@ socket.addEventListener('open', async () => {
     //
     // The whole point of this addition: the phone should be told what happened. Readying up
     // starts a countdown, which should produce a beat per second and then a start cue.
+    // Mode cycling, before anything starts. The controller sends right_click and does not
+    // know what modes exist; the host decides.
+    const modeMark = received.length;
+    send(socket, 'right_click', { clicks: 1 });
+    await sleep(250);
+    const modeCue = received.slice(modeMark).find((m) => m.t === 'cue');
+    check('cycling the mode from the lobby is acknowledged',
+      modeCue?.d?.kind === 'info' && typeof modeCue?.d?.text === 'string',
+      `got ${modeCue ? JSON.stringify(modeCue.d) : 'no cue'}`);
+
     const cueMark = received.length;
     send(socket, 'left_click', { clicks: 1 });          // ready up
     await sleep(200);
@@ -166,6 +176,15 @@ socket.addEventListener('open', async () => {
     check('every cue carries an intensity in range',
       cues.every((m) => typeof m.d.intensity === 'number'
                         && m.d.intensity >= 0 && m.d.intensity <= 1));
+
+    // Changing the rules under a running match would invalidate the scores it is about to
+    // report, so it must be refused rather than silently applied.
+    const midRoundMark = received.length;
+    send(socket, 'right_click', { clicks: 1 });
+    await sleep(250);
+    const refusal = received.slice(midRoundMark).find((m) => m.t === 'cue');
+    check('cycling the mode mid-round is refused', refusal?.d?.kind === 'failure',
+      `got ${refusal ? refusal.d.kind : 'no cue'}`);
 
     // Now in a round: a shot at an empty patch of arena should read as a miss.
     const shotMark = received.length;

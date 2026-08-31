@@ -100,7 +100,7 @@ final class GameHost: RemoteSessionHandler {
     func features(for session: RemoteSession) -> [String] {
         // No keyboard, no media, no scrolling: a gun has one button. Advertising only what
         // exists lets the controller hide the rest rather than offering dead UI.
-        ["pointer", "fire", "recenter", "ready"]
+        ["pointer", "fire", "recenter", "ready", "modes"]
     }
 
     func displays(for session: RemoteSession) -> [DisplayInfo] {
@@ -173,9 +173,26 @@ final class GameHost: RemoteSessionHandler {
         case .recenter:
             queue.async { [weak self] in self?.game.recenter(player: session.id) }
 
+        // A long-press on the trigger cycles the mode, so the whole match — including which
+        // game you are playing — is driven from the sofa.
+        case .rightClick:
+            queue.async { [weak self] in
+                guard let self else { return }
+                let modes = Mode.allCases
+                guard let index = modes.firstIndex(of: self.game.mode) else { return }
+                let next = modes[(index + 1) % modes.count]
+                guard self.game.setMode(next) else {
+                    session.send(cue: CuePayload(kind: .failure, intensity: 0.3,
+                                                 text: "Not mid-round"))
+                    return
+                }
+                Log.info("mode: \(next.title) — \(next.summary)")
+                self.broadcast(CuePayload(kind: .info, intensity: 0.5, text: next.title))
+            }
+
         // Everything else is a cursor-remote concern with no meaning here. Ignored rather
         // than rejected: the phone may legitimately offer buttons this host does not use.
-        case .rightClick, .dragStart, .dragEnd, .scroll, .keyPress, .textInput,
+        case .dragStart, .dragEnd, .scroll, .keyPress, .textInput,
              .mediaCommand, .calibration, .hello, .ping, .disconnect:
             break
         }

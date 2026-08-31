@@ -12,6 +12,8 @@ public struct PlayerState: Identifiable, Equatable, Sendable {
     public var bestStreak: Int = 0
     /// Said they are ready to start. Meaningless outside the lobby and results screens.
     public var isReady: Bool = false
+    /// Knocked out in a mode with a miss limit. Their reticle stays on screen, greyed.
+    public var isEliminated: Bool = false
 
     public var accuracy: Double { shots == 0 ? 0 : Double(hits) / Double(shots) }
 
@@ -42,6 +44,7 @@ public final class Game {
     public private(set) var players: [UUID: PlayerState] = [:]
     public private(set) var targets: [Target] = []
     public private(set) var phase: Phase = .lobby
+    public private(set) var mode: Mode = .arcade
     /// Scores from the round that just finished, kept for the results screen after the
     /// live scores are cleared for the next one.
     public private(set) var lastResults: [PlayerState] = []
@@ -63,6 +66,11 @@ public final class Game {
         public var maxMultiplier = 5
         public var edgeInset: Double = 8
 
+        /// Points per second a target drifts at. `0...0` keeps them still.
+        public var targetSpeed: ClosedRange<Double> = 0...0
+        /// Misses before a player is out for the round. Zero means unlimited.
+        public var missesAllowed: Int = 0
+
         public var roundDuration: Double = 45
         public var countdownDuration: Double = 3
         public var resultsDuration: Double = 12
@@ -72,6 +80,7 @@ public final class Game {
 
     private var rng: RandomNumberGenerator
     private var lastSpawnAt: TimeInterval = -.infinity
+    private var lastMovedAt: TimeInterval?
     private var lastShotAt: [UUID: TimeInterval] = [:]
 
     public init(arena: Arena, settings: Settings = Settings(),
@@ -79,6 +88,16 @@ public final class Game {
         self.arena = arena
         self.settings = settings
         self.rng = rng
+    }
+
+    /// Switches mode. Refused mid-round, since changing the rules under a running match
+    /// would invalidate the scores it is about to report.
+    @discardableResult
+    public func setMode(_ mode: Mode) -> Bool {
+        guard !phase.isPlaying else { return false }
+        self.mode = mode
+        self.settings = mode.settings
+        return true
     }
 
     public func resize(to arena: Arena) {
@@ -171,6 +190,8 @@ public final class Game {
 
     public func fire(player id: UUID, at now: TimeInterval) -> ShotOutcome {
         guard var player = players[id] else { return .noSuchPlayer }
+        // An eliminated player's trigger does nothing until the next round.
+        guard !player.isEliminated else { return .tooSoon }
         if let last = lastShotAt[id], now - last < settings.shotCooldown { return .tooSoon }
         lastShotAt[id] = now
 
@@ -185,6 +206,10 @@ public final class Game {
 
         guard let hitIndex else {
             player.streak = 0
+            if settings.missesAllowed > 0,
+               player.shots - player.hits >= settings.missesAllowed {
+                player.isEliminated = true
+            }
             players[id] = player
             return .miss
         }
@@ -223,6 +248,14 @@ public final class Game {
             return []
         }
 
+        // Everyone out ends a survival round early; there is nothing left to watch.
+        if settings.missesAllowed > 0, !players.isEmpty,
+           players.values.allSatisfy(\.isEliminated) {
+            endRound(at: now)
+            return []
+        }
+
+        advanceTargets(to: now)
         let expired = targets.filter { $0.hasExpired(at: now) }
         if !expired.isEmpty {
             let expiredIDs = Set(expired.map(\.id))
@@ -268,6 +301,7 @@ public final class Game {
             fresh.isReady = true
             players[id] = fresh
         }
+        lastMovedAt = now
         phase = .playing(endsAt: now + settings.roundDuration)
     }
 
@@ -288,15 +322,34 @@ public final class Game {
         }
     }
 
+    private func advanceTargets(to now: TimeInterval) {
+        defer { lastMovedAt = now }
+        guard let last = lastMovedAt else { return }
+        let dt = now - last
+        // A long gap means the app was occluded or the machine slept; moving targets by
+        // that much would teleport them across the arena.
+        guard dt > 0, dt < 0.25 else { return }
+        for index in targets.indices {
+            targets[index].advance(by: dt, in: arena)
+        }
+    }
+
     private func makeTarget(at now: TimeInterval) -> Target {
         let radius = Double.random(in: settings.targetRadius, using: &rng)
         let margin = radius + settings.edgeInset
         let x = Double.random(in: margin...(max(arena.width - margin, margin + 1)), using: &rng)
         let y = Double.random(in: margin...(max(arena.height - margin, margin + 1)), using: &rng)
+        var velocity = Vec2.zero
+        if settings.targetSpeed.upperBound > 0 {
+            let speed = Double.random(in: settings.targetSpeed, using: &rng)
+            let heading = Double.random(in: 0...(2 * .pi), using: &rng)
+            velocity = Vec2(x: cos(heading) * speed, y: sin(heading) * speed)
+        }
         return Target(center: Vec2(x: x, y: y),
                       radius: radius,
                       spawnedAt: now,
-                      lifetime: Double.random(in: settings.targetLifetime, using: &rng))
+                      lifetime: Double.random(in: settings.targetLifetime, using: &rng),
+                      velocity: velocity)
     }
 
     /// Highest score first; ties broken by accuracy so a careful player beats a spammer.

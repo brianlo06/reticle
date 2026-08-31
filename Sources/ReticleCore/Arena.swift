@@ -8,6 +8,8 @@ public struct Vec2: Equatable, Sendable {
 
     public static let zero = Vec2(x: 0, y: 0)
 
+    public var length: Double { (x * x + y * y).squareRoot() }
+
     public func distance(to other: Vec2) -> Double {
         ((x - other.x) * (x - other.x) + (y - other.y) * (y - other.y)).squareRoot()
     }
@@ -45,14 +47,37 @@ public struct Target: Identifiable, Equatable, Sendable {
     public var radius: Double
     public let spawnedAt: TimeInterval
     public let lifetime: TimeInterval
+    /// Points per second. Zero for a stationary target.
+    public var velocity: Vec2
 
     public init(id: UUID = UUID(), center: Vec2, radius: Double,
-                spawnedAt: TimeInterval, lifetime: TimeInterval) {
+                spawnedAt: TimeInterval, lifetime: TimeInterval,
+                velocity: Vec2 = .zero) {
         self.id = id
         self.center = center
         self.radius = radius
         self.spawnedAt = spawnedAt
         self.lifetime = lifetime
+        self.velocity = velocity
+    }
+
+    /// Advances the target, bouncing off the walls.
+    ///
+    /// Reflection rather than wrapping: a target that teleports from one edge to the other
+    /// cannot be tracked, and tracking is the whole point of making them move.
+    public mutating func advance(by dt: Double, in arena: Arena) {
+        guard dt > 0, velocity != .zero else { return }
+        var next = Vec2(x: center.x + velocity.x * dt, y: center.y + velocity.y * dt)
+
+        if next.x - radius < 0 || next.x + radius > arena.width {
+            velocity.x = -velocity.x
+            next.x = min(max(next.x, radius), arena.width - radius)
+        }
+        if next.y - radius < 0 || next.y + radius > arena.height {
+            velocity.y = -velocity.y
+            next.y = min(max(next.y, radius), arena.height - radius)
+        }
+        center = next
     }
 
     public func contains(_ point: Vec2) -> Bool {
