@@ -1,5 +1,7 @@
 # Reticle
 
+[![CI](https://github.com/brianlo06/reticle/actions/workflows/ci.yml/badge.svg)](https://github.com/brianlo06/reticle/actions/workflows/ci.yml)
+
 A light-gun shooting gallery for a Mac plugged into a TV. Your phone is the gun: aim it at
 the screen to move your reticle, tap to fire. Up to four players, each with their own phone
 and their own crosshair.
