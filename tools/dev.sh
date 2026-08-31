@@ -28,3 +28,6 @@ if [ -z "$CODE" ]; then echo "!! the game did not start"; cat "$LOG"; exit 1; fi
 
 echo "==> joining as a simulated player (code $CODE)"
 node tools/probe.mjs --code "$CODE" --port "$PORT"
+
+echo "==> three players in one round"
+node tools/multiplayer-check.mjs --code "$CODE" --port "$PORT" --players 3

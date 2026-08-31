@@ -75,3 +75,18 @@ Two details that only matter once real people use it:
 - A player leaving must not deadlock a lobby that was waiting on their readiness, and the
   last player leaving returns to the lobby rather than running a match nobody is in. Both
   are tested, because both are the kind of thing that only bites with a real group.
+
+## Why the pairing code is reusable here and not in AirPoint
+
+AirPoint burns the pairing code on first success. That is right for a remote: the code is
+shown to admit one device, and reusing it would let a second in on the strength of a
+screenshot.
+
+A party game inverts the requirement. Everyone scans the same code off the television, so a
+single-use code means only the first player can ever join — which is precisely what the
+multiplayer harness found on its first run, before any human had tried it.
+
+So `PairingService` takes `consumeOnSuccess`, defaulting to the strict behaviour, and this
+game opts out. It is a real relaxation and worth naming: someone who photographs the screen
+within the five-minute TTL can attempt to join. They arrive as an approval prompt on the
+host, which is the control that actually matters, and the attempt lockout is unchanged.

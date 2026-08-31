@@ -1,13 +1,13 @@
 {
-  "originHash" : "986ba6df988eadc644ca74ca3d615213835e0ebadad98f9702c49346f1dbeb8b",
+  "originHash" : "f477da886fd0a3bc60770cadd34f8bab342342751c5f446ac5fd8a4888954aaf",
   "pins" : [
     {
       "identity" : "airpoint",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/brianlo06/airpoint.git",
       "state" : {
-        "revision" : "faa894abbd29db637be9e79a349d5de1e2065b84",
-        "version" : "0.3.0"
+        "revision" : "e450ffcbc274f9f0a0fa99466c40fabe4e041b0c",
+        "version" : "0.3.1"
       }
     }
   ],

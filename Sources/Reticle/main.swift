@@ -154,8 +154,11 @@ do {
     fail("\(error)")
 }
 
+// Everyone scans the same code off the television, so it must survive being used. Each
+// player is still approved individually and the code still expires.
 let pairing = PairingService(trustStore: TrustStore(secrets: deviceSecrets),
-                             approver: ConsoleApprover(autoApprove: options.autoApprove))
+                             approver: ConsoleApprover(autoApprove: options.autoApprove),
+                             consumeOnSuccess: false)
 
 let serverConfig = ServerConfig(
     port: options.port,

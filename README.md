@@ -151,8 +151,10 @@ presentation, and any other project built on `RemoteServer` inherits it.
   session of feedback. Reticle inherits AirPoint's `aimGain: 1.0` unchanged, and a game
   probably wants something twitchier than a cursor remote. All of them are single constants
   in `Game.Settings`.
-- Only played single-player so far. Four seats are implemented and tested, but no two phones
-  have been in a round together.
+- Only played single-player on real hardware. Multiplayer is verified by
+  `tools/multiplayer-check.mjs` — four concurrent sessions, simultaneous fire, per-player
+  feedback and seat eviction all pass against a live host — but no two actual phones have
+  been in a round together.
 - Modes and moving targets are tested but have not been played on hardware.
 
 ## Licence
