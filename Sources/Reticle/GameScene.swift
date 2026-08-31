@@ -60,6 +60,8 @@ final class GameScene: SKScene {
     /// flip. Bound to M, because the one person near the keyboard is usually the one being
     /// asked to turn it down.
     var onToggleMute: (() -> Bool?)?
+    /// Nudges the aim multiplier and reports the new value. Bound to `[` and `]`.
+    var onAdjustSensitivity: ((Double) -> Double?)?
 
     init(game: Game, size: CGSize) {
         self.game = game
@@ -379,6 +381,14 @@ final class GameScene: SKScene {
         case "m":
             guard let muted = onToggleMute?() else { return }
             announce(muted ? "SOUND OFF" : "SOUND ON")
+        // Aim is tuned by feel, which means tuning it during a round rather than between
+        // launches. It is deliberately not refused mid-round the way a mode change is: a
+        // mode change rewrites the rules the scores are being kept under, while this only
+        // changes how far the gun swings, and it cannot be judged while standing still.
+        case "[", "]":
+            let step = event.charactersIgnoringModifiers == "[" ? -0.1 : 0.1
+            guard let sensitivity = onAdjustSensitivity?(step) else { return }
+            announce(String(format: "AIM %.2f×", sensitivity))
         default:
             super.keyDown(with: event)
         }

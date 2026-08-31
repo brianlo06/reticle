@@ -44,12 +44,17 @@ public enum Mode: String, CaseIterable, Sendable {
             settings.spawnInterval = 1.1
             settings.targetSpeed = 0...25
             settings.shotCooldown = 0.28
+            // Slower aim as well as slower targets. A mode about holding still is one
+            // where a twitch should not cross the arena.
+            settings.aimGain = 1.15
         case .survival:
             settings.targetRadius = 18...40
             settings.targetLifetime = 1.4...2.4
             settings.spawnInterval = 0.5
             settings.targetSpeed = 60...190
             settings.missesAllowed = 3
+            // Fast targets need a gun that can catch them.
+            settings.aimGain = 1.9
             // No fixed length: it ends when everyone is out.
             settings.roundDuration = 300
         }

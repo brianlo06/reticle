@@ -117,6 +117,18 @@ or the click reads as a fault rather than as a gun.
 What is left in `Audio.swift` is the part that genuinely needs hardware — an engine, a pool
 of voices, and a note about output devices changing when you plug into a television.
 
+## Why sensitivity is not one of the mode's settings
+
+`setMode` replaces `Game.Settings` wholesale, which is what makes a mode a named set of
+numbers rather than a branch in the rules. But aim gain is not the mode's business: it is
+the room's, and a value somebody spent a round settling must not be silently undone by
+cycling to Precision and back from the sofa. So the mode proposes a gain, `Game.sensitivity`
+multiplies it, and only the multiplier survives a mode change.
+
+It is deliberately adjustable during a round, unlike the mode itself. A mode change rewrites
+the rules the current scores are being kept under; this only changes how far the gun swings,
+and it cannot be judged while standing still.
+
 ## Why the clock is not the render loop
 
 SpriteKit drove the game from its frame callback, and the view is paused when the window is

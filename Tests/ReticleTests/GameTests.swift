@@ -62,11 +62,14 @@ final class GameTests: XCTestCase {
         game.addPlayer(id: id, name: "P1")
         let start = game.players[id]!.reticle
 
-        // The phone reports screen-space deltas: +dy means downward.
+        // The phone reports screen-space deltas: +dy means downward. Expressed in terms of
+        // the gain rather than against a bare 40, because what this test is about is the
+        // sign of y — a literal here would break every time the aim is tuned.
+        let gain = game.effectiveAimGain
         game.aim(player: id, dx: 40, dy: 25)
         let moved = game.players[id]!.reticle
-        XCTAssertEqual(moved.x, start.x + 40, accuracy: 1e-9)
-        XCTAssertEqual(moved.y, start.y - 25, accuracy: 1e-9,
+        XCTAssertEqual(moved.x, start.x + 40 * gain, accuracy: 1e-9)
+        XCTAssertEqual(moved.y, start.y - 25 * gain, accuracy: 1e-9,
                        "screen-down must become arena-down, or aiming is inverted")
     }
 

@@ -44,6 +44,7 @@ On each player's phone:
 --players <n>       Seats, 1–4 (default 4)
 --fullscreen        Start filling the screen
 --mute              Start silent. M toggles it.
+--sensitivity <n>   Aim multiplier, 0.25–4 (default 1). [ and ] adjust it live.
 --auto-approve      Skip the approval prompt. Testing only.
 ```
 
@@ -189,11 +190,11 @@ testing convenience, not a hosting mode.
 ## Not done yet
 
 - The reticle colours assume four seats; a fifth player would reuse the first colour.
-- **Tuning is unvalidated.** It has been played on real hardware and works, but the round
-  length, target sizes, spawn pacing and aim gain were all chosen by guess and have had one
-  session of feedback. Reticle inherits AirPoint's `aimGain: 1.0` unchanged, and a game
-  probably wants something twitchier than a cursor remote. All of them are single constants
-  in `Game.Settings`.
+- **Tuning is still unvalidated.** The round length, target sizes and spawn pacing were
+  chosen by guess and have had one session of feedback. Aim is the exception only in that it
+  can now be settled without a rebuild: `[` and `]` adjust it mid-round and the value is
+  logged so it can be passed back as `--sensitivity`. The starting numbers are a
+  better-reasoned guess than `aimGain: 1.0`, not a measured one.
 - Only played single-player on real hardware. Multiplayer is verified by
   `tools/multiplayer-check.mjs` — four concurrent sessions, simultaneous fire, per-player
   feedback and seat eviction all pass against a live host — but no two actual phones have

@@ -51,6 +51,23 @@ public final class Game {
 
     public var settings: Settings
 
+    /// A multiplier on the mode's aim gain, belonging to the room rather than to the mode.
+    ///
+    /// It lives here rather than in `Settings` precisely because `setMode` replaces those
+    /// wholesale: a value somebody spent a round settling must not be silently undone by
+    /// cycling to Precision and back. Clamped, because it is adjustable live and a
+    /// mistyped sensitivity that puts the reticle in the corner cannot be corrected from
+    /// the corner.
+    public var sensitivity: Double = 1.0 {
+        didSet {
+            guard !sensitivity.isFinite || sensitivity < 0.25 || sensitivity > 4 else { return }
+            sensitivity = sensitivity.isFinite ? min(max(sensitivity, 0.25), 4) : oldValue
+        }
+    }
+
+    /// What a pixel of phone movement is actually worth right now.
+    public var effectiveAimGain: Double { settings.aimGain * sensitivity }
+
     public struct Settings: Sendable {
         /// Pixels per second at which a target shrinks. Smaller targets score more.
         public var targetRadius: ClosedRange<Double> = 26...58
@@ -61,7 +78,12 @@ public final class Game {
         public var shotCooldown: Double = 0.16
         /// Reticle travel per pixel of phone delta. The phone already applies its own
         /// sensitivity, so this is a game-feel trim on top of it.
-        public var aimGain: Double = 1.0
+        ///
+        /// Above one, because this was inherited from a cursor remote and a gun is not a
+        /// cursor: a remote wants a pointer that settles where you left it, a shooting
+        /// gallery wants the whole arena reachable from a wrist flick. `Game.sensitivity`
+        /// multiplies it, so a room that disagrees can say so without a rebuild.
+        public var aimGain: Double = 1.6
         /// Streak multiplier is capped so a long run does not run away with the score.
         public var maxMultiplier = 5
         public var edgeInset: Double = 8
@@ -143,8 +165,9 @@ public final class Game {
     /// hardware and invisible in code review.
     public func aim(player id: UUID, dx: Double, dy: Double) {
         guard var player = players[id], dx.isFinite, dy.isFinite else { return }
-        let moved = Vec2(x: player.reticle.x + dx * settings.aimGain,
-                         y: player.reticle.y - dy * settings.aimGain)
+        let gain = effectiveAimGain
+        let moved = Vec2(x: player.reticle.x + dx * gain,
+                         y: player.reticle.y - dy * gain)
         player.reticle = arena.clamp(moved, inset: settings.edgeInset)
         players[id] = player
     }

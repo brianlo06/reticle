@@ -21,6 +21,7 @@ struct Options {
     var logLevel: Log.Level = .info
     var fullscreen = false
     var mute = false
+    var sensitivity: Double = 1.0
 
     static let usage = """
     reticle — a phone-aimed shooting gallery for your TV
@@ -34,6 +35,7 @@ struct Options {
       --auto-approve      Skip the approval prompt. Requires --bind 127.0.0.1.
       --fullscreen        Start filling the screen
       --mute              Start with the television silent (M toggles it)
+      --sensitivity <n>   Aim multiplier, 0.25-4 (default 1). [ and ] adjust it live
       --log-level <l>     debug | info | warn | error
       -h, --help          This help
 
@@ -66,6 +68,8 @@ struct Options {
                 options.fullscreen = true
             case "--mute":
                 options.mute = true
+            case "--sensitivity":
+                if let raw = value(), let gain = Double(raw) { options.sensitivity = gain }
             case "--log-level":
                 switch value()?.lowercased() {
                 case "debug": options.logLevel = .debug
@@ -124,6 +128,7 @@ window.collectionBehavior = [.fullScreenPrimary]
 
 let game = Game(arena: Arena(width: initialSize.width, height: initialSize.height),
                 settings: .arcade)
+game.sensitivity = options.sensitivity
 let scene = GameScene(game: game, size: initialSize)
 let skView = SKView(frame: NSRect(origin: .zero, size: initialSize))
 skView.presentScene(scene)
@@ -171,6 +176,17 @@ scene.onFrame = { [weak host] in host?.logPhaseChanges() }
 let audio = GameAudio(muted: options.mute)
 if audio == nil { Log.warn("running without sound") }
 host.onCue = { [weak audio] cue in audio?.play(cue) }
+// Aim is the one number that cannot be settled without a phone in a hand and a television
+// across the room, so it is adjustable from the keyboard while a round is running rather
+// than only at launch. The value is logged each time so a settled one can be passed back in
+// as --sensitivity next time instead of being rediscovered.
+scene.onAdjustSensitivity = { [weak game] delta in
+    guard let game else { return nil }
+    game.sensitivity += delta
+    Log.info(String(format: "sensitivity %.2f (aim gain %.2f) — pass --sensitivity %.2f to keep it",
+                    game.sensitivity, game.effectiveAimGain, game.sensitivity))
+    return game.sensitivity
+}
 scene.onToggleMute = { [weak audio] in
     guard let audio else { return nil }
     audio.isMuted.toggle()
