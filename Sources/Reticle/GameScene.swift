@@ -150,6 +150,17 @@ final class GameScene: SKScene {
     }
 
     override func update(_ currentTime: TimeInterval) {
+        advance()
+    }
+
+    /// Advances the game and redraws from what it finds.
+    ///
+    /// Separate from `update(_:)` because it is also driven by a timer while the window is
+    /// occluded. Rendering may stop when nobody can see the screen; the round may not. A
+    /// round is forty-five seconds of real time, and the players are listening to a
+    /// countdown on their phones that must not stall because somebody brought another
+    /// window in front of the television.
+    func advance() {
         let now = Date().timeIntervalSince1970
         for expired in game.tick(at: now) {
             // A target that timed out fades rather than vanishing, so the player can see
@@ -182,7 +193,6 @@ final class GameScene: SKScene {
         switch game.phase {
         case .lobby:
             let waiting = game.players.values.filter { !$0.isReady }.count
-            phaseLabel.fontSize = 34
             phaseLabel.fontSize = 30
             phaseLabel.text = game.players.isEmpty
                 ? "Scan with your phone's camera to join"

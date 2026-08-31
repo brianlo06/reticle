@@ -90,3 +90,14 @@ So `PairingService` takes `consumeOnSuccess`, defaulting to the strict behaviour
 game opts out. It is a real relaxation and worth naming: someone who photographs the screen
 within the five-minute TTL can attempt to join. They arrive as an approval prompt on the
 host, which is the control that actually matters, and the attempt lockout is unchanged.
+
+## Why the clock is not the render loop
+
+SpriteKit drove the game from its frame callback, and the view is paused when the window is
+occluded — a Mac plugged into a television is also a Mac somebody is using, and the terminal
+that launched the game is usually in front of it. The result was a round that froze
+mid-countdown while the phones went on beating out three, two, one.
+
+Rendering is what should stop when nobody can see the screen. A plain timer takes over the
+clock while the window is hidden: forty-five seconds is forty-five seconds whether or not
+anyone is looking.

@@ -130,11 +130,29 @@ if options.fullscreen { window.toggleFullScreen(nil) }
 // A fully occluded window stops being handed drawables, and SpriteKit complains once per
 // frame. Pausing while hidden silences it, and stops burning a GPU on a window nobody can
 // see — which during this session was most of the time, since the terminal was in front.
+//
+// Rendering is what stops, though, not the game. SpriteKit drives the clock from its frame
+// loop, so pausing the view used to freeze the round mid-countdown: the phones went on
+// beating out three, two, one and the round never started. A plain timer takes over while
+// the window is hidden, because forty-five seconds is forty-five seconds whether or not
+// anyone is looking at the screen.
+var hiddenClock: Timer?
 let occlusionObserver = NotificationCenter.default.addObserver(
     forName: NSWindow.didChangeOcclusionStateNotification,
     object: window, queue: .main
-) { [weak skView] _ in
-    skView?.isPaused = !window.occlusionState.contains(.visible)
+) { [weak skView, weak scene] _ in
+    let visible = window.occlusionState.contains(.visible)
+    skView?.isPaused = !visible
+
+    hiddenClock?.invalidate()
+    hiddenClock = nil
+    guard !visible else { return }
+    let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak scene] _ in
+        scene?.advance()
+    }
+    // Common mode, or the round would also stop for a menu being held open.
+    RunLoop.main.add(timer, forMode: .common)
+    hiddenClock = timer
 }
 
 // MARK: - Server
